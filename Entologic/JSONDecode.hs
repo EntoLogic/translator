@@ -1,0 +1,2 @@
+
+module Entologic.JSONDecode where
