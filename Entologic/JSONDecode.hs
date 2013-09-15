@@ -55,4 +55,25 @@ instance FromJSON Expression where
           Just f -> f obj
           Nothing -> fail "Invalid Expression type"
       where
-        parsers = [] :: [(Text, Object -> Parser Expression)]
+        parsers = [("Assignment", assignment), ("OpAssign", opAssign), ("BinExpr", binExpr)]
+
+assignment obj = Assign <$> obj .: "Variable"
+                        <*> obj .: "Value"
+
+opAssign obj = OpAssign <$> obj .: "Variable"
+                        <*> obj .: "Op"
+                        <*> obj .: "Value"
+
+binExpr obj = BinOp <$> obj .: "Op"
+                    <*> obj .: "FirstArg"
+                    <*> obj .: "SecondArg"
+
+instance FromJSON VarRef where
+    parseJSON (String s) = pure $ StringV s
+
+instance FromJSON InfixOp where
+    parseJSON (String s) = do
+        (Just op) <- return $ lookup s ops
+        return op
+      where
+        ops = [("Plus", Plus), ("Minus", Minus), ("Mult", Mult), ("Div", Div), ("Mod", Mod)]
