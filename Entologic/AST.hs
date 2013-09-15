@@ -3,6 +3,8 @@
 
 module Entologic.AST where
 
+import Data.Text
+
 class ASTNode a where
     toEng :: (ASTNode a) => a -> String
 
@@ -10,18 +12,19 @@ data NInf = NInf {lineNo :: Int}
 
 data Program = Program [LSAny]
 
-data Type where
-    LSType :: (ASTNode a) => a -> Type
+
+data Type = StringT Text
+          | forall a. (ASTNode a) => LSType a
 
 
 data LSAny = forall a. (ASTNode a) => LSAny a
 
-data Function = Function { fTyp :: (Maybe Type), fParams :: [ParamDecl], fBody :: Body (Maybe LSAny) }
+data Function = Function { fName :: String, fRTyp :: (Maybe Type), fParams :: [ParamDecl], fBody :: Body, fExtra :: (Maybe LSAny) }
 
-data ParamDecl = ParamDecl Name (Maybe Type)
-
-data Name = SName String
+data ParamDecl = ParamDecl { pName :: Text, pType :: (Maybe Type) }
 
 data Body = Body [Statement]
 
-data Statement = VarDecl 
+data Statement = VarDecl Type Text (Maybe Expression)
+
+data Expression = No
