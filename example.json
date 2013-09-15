@@ -1,0 +1,41 @@
+
+{
+  "Meta":
+  {
+    "Language": "Ruby"
+  },
+
+  "uast":
+  {
+    "Program":
+    [
+      {
+        "Node": "Function",
+        "Name": "two_and_three",
+        "Arguments": ["x", "y", "z"],
+        "Body":
+        [
+          {
+            "Node": "Assignment",
+            "Variable": "x",
+            "Value":
+            {
+              "Node": "BinExpr",
+              "Op": "Add",
+              "FirstArg":
+              {
+                "Node": "IntLit",
+                "Val": "2"
+              },
+              "SecondArg":
+              {
+                "Node": "IntLit",
+                "Val": "3"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
