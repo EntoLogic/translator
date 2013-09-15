@@ -12,6 +12,18 @@ import Data.Text
 
 import Entologic.AST
 
+data AstJson = AstJson UAST deriving Show
+
+data UAST = UAST Program deriving Show
+
+instance FromJSON Program where
+    parseJSON (Array v) = Program <$> mapM parseJSON (V.toList v)
+
+instance FromJSON AstJson where
+    parseJSON (Object obj) = AstJson <$> obj .: "uast"
+
+instance FromJSON UAST where
+    parseJSON (Object obj) = UAST <$> obj .: "Program"
 
 instance FromJSON Function where
     parseJSON (Object obj) = do
@@ -39,7 +51,7 @@ instance FromJSON Statement where
         (String typ) <- obj .: "Node"
         case lookup typ parsers of
           Just f -> f obj
-          Nothing -> fail "Invalid Statement type"
+          Nothing -> StmExpr <$> parseJSON (Object obj)
       where
         parsers = [("VarDecl", varDecl)]
 
@@ -53,9 +65,9 @@ instance FromJSON Expression where
         (String typ) <- obj .: "Node"
         case lookup typ parsers of
           Just f -> f obj
-          Nothing -> fail "Invalid Expression type"
+          Nothing -> fail $ "Invalid Expression type: " ++ unpack typ
       where
-        parsers = [("Assignment", assignment), ("OpAssign", opAssign), ("BinExpr", binExpr)]
+        parsers = [("Assignment", assignment), ("OpAssign", opAssign), ("BinExpr", binExpr), ("IntLit", intLit)]
 
 assignment obj = Assign <$> obj .: "Variable"
                         <*> obj .: "Value"
@@ -68,6 +80,8 @@ binExpr obj = BinOp <$> obj .: "Op"
                     <*> obj .: "FirstArg"
                     <*> obj .: "SecondArg"
 
+intLit obj = IntLit . read <$> obj .: "Val"
+
 instance FromJSON VarRef where
     parseJSON (String s) = pure $ StringV s
 
@@ -76,4 +90,4 @@ instance FromJSON InfixOp where
         (Just op) <- return $ lookup s ops
         return op
       where
-        ops = [("Plus", Plus), ("Minus", Minus), ("Mult", Mult), ("Div", Div), ("Mod", Mod)]
+        ops = [("Add", Plus), ("Sub", Minus), ("Mult", Mult), ("Div", Div), ("Mod", Mod)]

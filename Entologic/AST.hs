@@ -9,27 +9,39 @@ class ASTNode a where
     toEng :: (ASTNode a) => a -> String
 
 data NInf = NInf {lineNo :: Int}
+            deriving (Show)
 
-data Program = Program [LSAny]
+data Program = Program [Function]
+               deriving (Show)
 
 
 data Type = StringT Text
-          | forall a. (ASTNode a) => LSType a
+--          | forall a. (ASTNode a, Show a) => LSType a
+            deriving (Show)
 
 
-data LSAny = forall a. (ASTNode a) => LSAny a
+data LSAny = forall a. (ASTNode a, Show a) => LSAny a
+
+instance Show LSAny where
+    show _ = "LSAny"
 
 data Function = Function { fName :: String, fRTyp :: (Maybe Type), fParams :: [ParamDecl],
                            fBody :: Body, fExtra :: (Maybe LSAny) }
+                deriving (Show)
 
 data ParamDecl = ParamDecl { pName :: Text, pType :: (Maybe Type) }
+                 deriving (Show)
 
 data Body = Body [Statement]
+            deriving (Show)
 
 data Statement = VarDecl Type Text (Maybe Expression)
+               | StmExpr Expression
+                 deriving (Show)
 
 data VarRef = StringV Text
             | DottedV [Text]
+              deriving (Show)
 
 data InfixOp = Plus
              | Minus
@@ -44,7 +56,10 @@ data InfixOp = Plus
              | RShift
              | LShift
              | RUShift
+               deriving (Show)
 
 data Expression = Assign VarRef Expression
                 | OpAssign VarRef InfixOp Expression
                 | BinOp InfixOp Expression Expression
+                | IntLit Integer
+                  deriving (Show)
