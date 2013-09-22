@@ -5,15 +5,21 @@ module Entologic.AST where
 
 import Data.Text
 
+type DB = Data.Map String String
+
 class ASTNode a where
-    toEng :: (ASTNode a) => a -> String
+    toEng :: DB -> a -> String
 
 data NInf = NInf {lineNo :: Int}
             deriving (Show)
 
-data Program = Program [Function]
-               deriving (Show)
+data ProgramEntry = PEFunc Function
+                  | PECls Class
+                  | PEStm Statement
+                  deriving (Show)
 
+data Program = Program [ProgramEntry]
+               deriving (Show)
 
 data Type = StringT Text
 --          | forall a. (ASTNode a, Show a) => LSType a
@@ -24,6 +30,11 @@ data LSAny = forall a. (ASTNode a, Show a) => LSAny a
 
 instance Show LSAny where
     show _ = "LSAny"
+
+data Class = Class { cName :: String, cSuperCls :: Maybe Type, cMembers :: [Member] }
+
+data Member = MFunc Function
+            | MField Field
 
 data Function = Function { fName :: String, fRTyp :: (Maybe Type), fParams :: [ParamDecl],
                            fBody :: Body, fExtra :: (Maybe LSAny) }
@@ -58,8 +69,21 @@ data InfixOp = Plus
              | RUShift
                deriving (Show)
 
+data PrefixOp = Neg
+              | BInv
+              | PreInc
+              | PreDec
+                deriving (Show)
+
+data PostfixOp = PostInc
+               | PostDec
+                 deriving (Show)
+
 data Expression = Assign VarRef Expression
                 | OpAssign VarRef InfixOp Expression
                 | BinOp InfixOp Expression Expression
                 | IntLit Integer
+                | StringLit Text
+                | PreOp PrefixOp Expression
+                | PostOp PostfixOp Expression
                   deriving (Show)
