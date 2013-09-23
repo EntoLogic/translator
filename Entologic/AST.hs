@@ -1,14 +1,19 @@
 
-{-# LANGUAGE GADTs, ExistentialQuantification #-}
+{-# LANGUAGE GADTs, ExistentialQuantification,FlexibleContexts #-}
 
 module Entologic.AST where
 
 import Data.Text
+import Database.MongoDB.Query
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Control
 
-type DB = Data.Map String String
+
+type Lang = Text
 
 class ASTNode a where
-    toEng :: DB -> a -> String
+    toEng :: (MonadIO m, Functor m, MonadBaseControl IO m) => a -> Lang -> Action m String
+    toEng = undefined
 
 data NInf = NInf {lineNo :: Int}
             deriving (Show)
@@ -32,9 +37,14 @@ instance Show LSAny where
     show _ = "LSAny"
 
 data Class = Class { cName :: String, cSuperCls :: Maybe Type, cMembers :: [Member] }
+             deriving (Show)
 
 data Member = MFunc Function
             | MField Field
+              deriving (Show)
+
+data Field = Field
+             deriving (Show)
 
 data Function = Function { fName :: String, fRTyp :: (Maybe Type), fParams :: [ParamDecl],
                            fBody :: Body, fExtra :: (Maybe LSAny) }
