@@ -1,18 +1,24 @@
 
 {-# LANGUAGE GADTs,ExistentialQuantification,FlexibleContexts #-}
 
-module Entologic.AST where
+module Entologic.Ast where
 
 import Data.Text
 import Database.MongoDB.Query
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Control
 
+import qualified Data.Map as M
 
 type Lang = Text
 
-class ASTNode a where
-    toEng :: (MonadIO m, Functor m, MonadBaseControl IO m) => a -> Lang -> Action m Text
+type Phrase = Phrase { phName :: Text, phDefs :: M.Map Text [Text], phLangs :: M.Map Lang Phrase }
+            | LangPhrase { phName :: Text, phDefs :: M.Map Text [Text] }
+
+type Phrases = M.Map Text Phrase
+
+class AstNode a where
+    toEng :: Phrases -> a -> Lang -> Text
     toEng = undefined
 
 data NInf = NInf {lineNo :: Int}
@@ -31,7 +37,7 @@ data Type = StringT Text
             deriving (Show)
 
 
-data LSAny = forall a. (ASTNode a, Show a) => LSAny a
+data LSAny = forall a. (AstNode a, Show a) => LSAny a
 
 instance Show LSAny where
     show _ = "LSAny"
