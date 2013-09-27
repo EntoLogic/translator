@@ -1,5 +1,5 @@
 
-{-# LANGUAGE GADTs, ExistentialQuantification,FlexibleContexts #-}
+{-# LANGUAGE GADTs,ExistentialQuantification,FlexibleContexts #-}
 
 module Entologic.AST where
 
@@ -12,7 +12,7 @@ import Control.Monad.Trans.Control
 type Lang = Text
 
 class ASTNode a where
-    toEng :: (MonadIO m, Functor m, MonadBaseControl IO m) => a -> Lang -> Action m String
+    toEng :: (MonadIO m, Functor m, MonadBaseControl IO m) => a -> Lang -> Action m Text
     toEng = undefined
 
 data NInf = NInf {lineNo :: Int}
@@ -23,7 +23,7 @@ data ProgramEntry = PEFunc Function
                   | PEStm Statement
                   deriving (Show)
 
-data Program = Program [ProgramEntry]
+data Program = Program { pEntries :: [ProgramEntry] }
                deriving (Show)
 
 data Type = StringT Text

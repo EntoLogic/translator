@@ -8,6 +8,7 @@ import Entologic.AST
 import Control.Applicative ((<$>))
 import Database.MongoDB.Query
 import Data.Bson
+import Data.Text as T
 
 type DB = M.Map String String
 
@@ -17,6 +18,11 @@ langNode doc lang = case look lang doc of
                       Just (Doc d) -> d
 
 replace :: [Text] -> [(Text, Text)] -> Text
+replace template repls = map (replace' repls) template
+  where
+    replace' repls ('#':rest) =
+        case lookup rest repls of
+          Nothing -> '#'
 
 instance ASTNode Program where
     toEng node lang = do
@@ -26,5 +32,5 @@ instance ASTNode Program where
         return ""
 
       where
-        contents = []
+        contents = [("contents", foldl (T.append) $ map toEng $ pEntries node)]
         
