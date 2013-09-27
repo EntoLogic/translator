@@ -8,14 +8,10 @@ import Database.MongoDB.Query
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Control
 
+import Entologic.Phrase
+
 import qualified Data.Map as M
 
-type Lang = Text
-
-type Phrase = Phrase { phName :: Text, phDefs :: M.Map Text [Text], phLangs :: M.Map Lang Phrase }
-            | LangPhrase { phName :: Text, phDefs :: M.Map Text [Text] }
-
-type Phrases = M.Map Text Phrase
 
 class AstNode a where
     toEng :: Phrases -> a -> Lang -> Text

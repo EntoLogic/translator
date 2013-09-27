@@ -10,19 +10,21 @@ import Database.MongoDB.Query
 import Data.Bson
 import Data.Text as T
 
-type DB = M.Map String String
 
-langNode :: Document -> Lang -> Document
-langNode doc lang = case look lang doc of
-                      Nothing -> doc
-                      Just (Doc d) -> d
+langNode :: Phrase -> Lang -> Phrase
+langNode phrase lang = case M.lookup $ phLangs phrase of
+                      Nothing -> phrase
+                      Just lp -> lp
 
 replace :: [Text] -> [(Text, Text)] -> Text
 replace template repls = map (replace' repls) template
   where
-    replace' repls ('#':rest) =
-        case lookup rest repls of
-          Nothing -> '#'
+    replace' repls toRepl
+      | "$$" `T.isPrefixOf` toRepl =
+          case lookup rest repls of
+          Nothing -> toRepl 
+          Just r -> r
+      | otherwise = toRepl
 
 instance ASTNode Program where
     toEng node lang = do
