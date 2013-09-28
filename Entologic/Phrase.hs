@@ -1,10 +1,15 @@
 
 module Entologic.Phrase where
 
-type Lang = Text
+import Data.Text
+import qualified Data.Map as M
 
-type Phrase = Phrase { phName :: Text, phDefs :: M.Map Text [Text], phLangs :: M.Map Lang Phrase }
-            | LangPhrase { phName :: Text, phDefs :: M.Map Text [Text] }
+type Lang = Text
+type NLang = Text
+
+data Phrase = Phrase { phName :: Text, phVal :: [Text], phValNLangs :: M.Map NLang [Text],
+                       phLangs :: M.Map Lang Phrase }
+            | LangPhrase { phName :: Text, phVal :: [Text], phValNLangs :: M.Map NLang [Text]}
               deriving (Show, Ord, Eq)
 
 type Phrases = M.Map Text Phrase

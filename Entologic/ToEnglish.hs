@@ -3,36 +3,38 @@
 
 module Entologic.ToEnglish where
 
-import Data.Map as M
-import Entologic.AST
+import qualified Data.Map as M
 import Control.Applicative ((<$>))
-import Database.MongoDB.Query
-import Data.Bson
-import Data.Text as T
+import qualified Data.Text as T
+import Data.Text(Text(..))
+
+import Entologic.Ast
+import Entologic.Phrase
 
 
-langNode :: Phrase -> Lang -> Phrase
-langNode phrase lang = case M.lookup $ phLangs phrase of
-                      Nothing -> phrase
-                      Just lp -> lp
+langPhrase :: Lang -> Phrase -> Phrase
+langPhrase lang phrase = case M.lookup lang $ phLangs phrase of
+                           Nothing -> phrase
+                           Just lp -> lp
+
+nLangPhrase :: NLang -> Phrase -> [Text]
+nLangPhrase nLang phrase = case M.lookup nLang $ phValNLangs phrase of
+                             Nothing -> phVal phrase
+                             Just val -> val
 
 replace :: [Text] -> [(Text, Text)] -> Text
-replace template repls = map (replace' repls) template
+replace template repls = T.concat $ map (replace' repls) template
   where
     replace' repls toRepl
       | "$$" `T.isPrefixOf` toRepl =
-          case lookup rest repls of
+          case lookup (T.drop 2 toRepl) repls of
           Nothing -> toRepl 
           Just r -> r
       | otherwise = toRepl
 
-instance ASTNode Program where
-    toEng node lang = do
-        nodeDoc <- (!!0) <$> (find (select ["node" =: "program"] "nodes") >>= rest)
-        let langDoc = langNode nodeDoc lang
-        let english = replace (look "contents" langDoc) replacements
-        return ""
-
+instance AstNode Program where
+    toEng phrases node lang = replace phraseContents replacements
       where
-        contents = [("contents", foldl (T.append) $ map toEng $ pEntries node)]
+        phraseContents = maybe ["Error"] (nLangPhrase "en" . langPhrase lang) $ M.lookup "program" phrases
+        replacements = [("contents", foldl (T.append) $ map toEng $ pEntries node)]
         
