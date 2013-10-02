@@ -14,7 +14,7 @@ import qualified Data.Map as M
 
 
 class AstNode a where
-    toEng :: Phrases -> a -> Lang -> Text
+    toEng :: Phrases -> Lang -> NLang -> a -> Text
     toEng = undefined
 
 data NInf = NInf {lineNo :: Int}
@@ -58,7 +58,7 @@ data ParamDecl = ParamDecl { pName :: Text, pType :: (Maybe Type) }
 data Body = Body [Statement]
             deriving (Show)
 
-data Statement = VarDecl Type Text (Maybe Expression)
+data Statement = VarDecl { vdType :: Type, vdName :: Text, vdInit :: Maybe Expression }
                | StmExpr Expression
                  deriving (Show)
 

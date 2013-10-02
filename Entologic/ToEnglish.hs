@@ -33,8 +33,23 @@ replace template repls = T.concat $ map (replace' repls) template
       | otherwise = toRepl
 
 instance AstNode Program where
-    toEng phrases node lang = replace phraseContents replacements
+    toEng phrases lang node = replace phraseContents replacements
       where
-        phraseContents = maybe ["Error"] (nLangPhrase "en" . langPhrase lang) $ M.lookup "program" phrases
-        replacements = [("contents", foldl (T.append) $ map toEng $ pEntries node)]
+        phraseContents = maybe ["Error"] (nLangPhrase n . langPhrase lang) $ M.lookup "program" phrases
+        replacements = [("contents", foldl (T.append) "" $ map (toEng phrases lang) $ pEntries node)]
+
+phrase :: Phrases -> Text -> Lang -> NLang -> [Text]
+phrases phrases name l nl = maybe ["Error"] (nLangPhrase nl . langPhrase l) $ M.lookup name phrases
         
+instance AstNode ProgramEntry where
+    toEng p l n (PEFunc f) = toEng p l n f
+--    toEng p l (PECls c) = toEng p l c
+--    toEng p l (PEStm s) = toEng p l s
+
+instance AstNode Statement where
+    toEng p l n (VarDecl typ nm init) = replace contents replacements
+      where
+        contents = case init of
+                     Nothing -> phrase p "vardecl" l n
+                     Just _ -> phrase p "vardecl.init" l n
+        replacements = [("type", toEng typ), ("name", nm), ("init", toEng $ fromJust init)]
