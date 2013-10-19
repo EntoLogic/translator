@@ -12,9 +12,10 @@ import Entologic.Phrase
 
 import qualified Data.Map as M
 
+data TransCtx = Ctx { cPhrases :: Phrases, cLang :: Lang, cNLang :: NLang }
 
 class AstNode a where
-    toEng :: Phrases -> Lang -> NLang -> a -> Text
+    toEng :: a -> State TransCtx Text
     toEng = undefined
 
 data NInf = NInf {lineNo :: Int}
