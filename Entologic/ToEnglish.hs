@@ -1,5 +1,5 @@
 
-{-# LANGUAGE OverloadedStrings,ExtendedDefaultRules #-}
+{-# LANGUAGE OverloadedStrings,ExtendedDefaultRules,GeneralizedNewtypeDeriving #-}
 
 module Entologic.ToEnglish where
 

@@ -13,13 +13,13 @@ type NLang = Text
 data Phrase = Phrase { _phNode :: Text, _phDefault :: [NPhrase], _phLangs :: M.Map NLang PPhrase }
                   deriving (Ord, Eq, Show)
 
-data PPhrase = PPhrase { _lpLang :: Text, _lpNLangs :: [NPhrase] }
+data PPhrase = PPhrase { _ppLang :: Text, _pNLangs :: [NPhrase] }
                   deriving (Ord, Eq, Show)
 
 data NPhrase = NPhrase { _npLang :: Text, _npClauses :: [Clause] }
                    deriving (Ord, Eq, Show)
 
-data Clause = DefClause Text
+data Clause = DefClause [Text]
             | CondClause { cond :: ClauseCond, clause :: [Text] }
               deriving (Ord, Eq, Show)
 

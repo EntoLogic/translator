@@ -1,5 +1,5 @@
 
-{-# LANGUAGE GADTs,ExistentialQuantification,FlexibleContexts #-}
+{-# LANGUAGE GADTs,ExistentialQuantification,FlexibleContexts,GeneralizedNewtypeDeriving #-}
 
 module Entologic.Ast where
 
@@ -12,10 +12,20 @@ import Entologic.Phrase
 
 import qualified Data.Map as M
 
-data TransCtx = Ctx { cPhrases :: Phrases, cLang :: Lang, cNLang :: NLang }
+import Control.Applicative
+import Control.Monad.Trans.State
+import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Writer
+
+data TLState = TLState 
+
+type WebTranslator = IO
+
+newtype TL a = TL (ReaderT Phrases (StateT TLState WebTranslator) a)
+               deriving (Functor, Applicative, Monad)
 
 class AstNode a where
-    toEng :: a -> State TransCtx Text
+    toEng :: a -> TL Text
     toEng = undefined
 
 data NInf = NInf {lineNo :: Int}

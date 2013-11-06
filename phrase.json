@@ -1,0 +1,22 @@
+[{
+    "node": "function",
+    "default": [{
+        "nlang": "en",
+        "clauses": [
+            "define a function called ",
+            "$$name"
+        ]
+    }],
+    "pLangs": {
+        "java": [{
+            "nlang": "en",
+            "clauses": [
+                "define a function called",
+                "$$name",
+                "taking the arguments:",
+                "$$args"
+            ]
+        }]
+    }
+}]
+
