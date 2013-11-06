@@ -29,9 +29,9 @@ instance FromJSON PPhrase where
         PPhrase <$> obj .: "lang"
                 <*> obj .: "nlangs"
 
-instance FromJSON NPhrase where
+instance FromJSON SPhrase where
     parseJSON (Object obj) =
-        NPhrase <$> obj .: "nlang"
+        SPhrase <$> obj .: "nlang"
                 <*> obj .: "clauses"
 
 instance FromJSON Clause where

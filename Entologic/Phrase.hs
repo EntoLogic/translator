@@ -7,16 +7,19 @@ import Data.Text
 import qualified Data.Map as M
 import Control.Lens
 
-type Lang = Text
-type NLang = Text
+type PLang = Text
+type SLang = Text
 
-data Phrase = Phrase { _phNode :: Text, _phDefault :: [NPhrase], _phLangs :: M.Map NLang PPhrase }
+type SPhrases = M.Map SLang SPhrase
+type PPhrases = M.Map PLang PPhrase
+
+data Phrase = Phrase { _phNode :: Text, _phDefault :: PPhrase, _phLangs :: PPhrases }
                   deriving (Ord, Eq, Show)
 
-data PPhrase = PPhrase { _ppLang :: Text, _pNLangs :: [NPhrase] }
+data PPhrase = PPhrase { _ppLang :: Text, _pSEnglish :: SPhrase, _pSLangs :: SPhrases }
                   deriving (Ord, Eq, Show)
 
-data NPhrase = NPhrase { _npLang :: Text, _npClauses :: [Clause] }
+data SPhrase = SPhrase { _spLang :: Text, _spClauses :: [Clause] }
                    deriving (Ord, Eq, Show)
 
 data Clause = DefClause [Text]
@@ -31,5 +34,5 @@ type Phrases = M.Map Text Phrase
 
 $(makeLenses ''Phrase)
 $(makeLenses ''PPhrase)
-$(makeLenses ''NPhrase)
+$(makeLenses ''SPhrase)
 

@@ -1,7 +1,7 @@
 
-{-# LANGUAGE OverloadedStrings,ExtendedDefaultRules,GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings,ExtendedDefaultRules,GeneralizedNewtypeDeriving,RankNTypes #-}
 
-module Entologic.ToEnglish where
+module Entologic.Translate where
 
 import qualified Data.Map as M
 import Control.Applicative ((<$>))
@@ -10,18 +10,25 @@ import Data.Text(Text(..))
 
 import Entologic.Ast
 import Entologic.Phrase
+import Control.Lens
 
+langPhrase :: PLang -> Getter Phrase PPhrase
+langPhrase lang = to $ _langPhrase lang
 
-langPhrase :: Lang -> Phrase -> Phrase
-langPhrase lang phrase = case M.lookup lang $ phLangs phrase of
-                           Nothing -> phrase
+_langPhrase :: PLang -> Phrase -> PPhrase
+_langPhrase lang phrase = case M.lookup lang $ phrase ^. phLangs of
+                           Nothing -> phrase ^. phDefault
                            Just lp -> lp
 
-nLangPhrase :: NLang -> Phrase -> [Text]
-nLangPhrase nLang phrase = case M.lookup nLang $ phValNLangs phrase of
-                             Nothing -> phVal phrase
+sLangPhrase :: SLang -> Getter PPhrase SPhrase
+sLangPhrase lang = to $ _sLangPhrase lang
+
+_sLangPhrase :: SLang -> PPhrase -> SPhrase
+_sLangPhrase nLang pphrase = case M.lookup nLang $ pphrase ^. pSLangs of
+                             Nothing -> pphrase ^. pSEnglish
                              Just val -> val
 
+{-
 replace :: [Text] -> [(Text, Text)] -> Text
 replace template repls = T.concat $ map (replace' repls) template
   where
@@ -57,5 +64,4 @@ instance AstNode Statement where
                      Just _ -> phrase p "vardecl.init" l n
         replacements = [("type", toEng typ), ("name", nm), ("init", toEng $ fromJust init)]
 
-instance AstNode Expression where
-    toEng p l n (
+-}
