@@ -13,10 +13,11 @@ import Control.Lens
 
 instance FromJSON (M.Map T.Text Phrase) where
     parseJSON (Array ar) = do
-        phrases <- mapM_ parseJSON $ V.toList ar
+        phrases <- mapM parseJSON $ V.toList ar
         return $ foldl insert M.empty phrases
       where
-        insert map phrase = M.insert (phrase ^. phNode) phrase
+        insert :: M.Map T.Text Phrase -> Phrase -> M.Map T.Text Phrase
+        insert map phrase = M.insert (phrase ^. phNode) phrase map
 
 instance FromJSON Phrase where
     parseJSON (Object obj) =
@@ -27,6 +28,7 @@ instance FromJSON Phrase where
 instance FromJSON PPhrase where
     parseJSON (Object obj) =
         PPhrase <$> obj .: "lang"
+                <*> obj .: "en"
                 <*> obj .: "nlangs"
 
 instance FromJSON SPhrase where

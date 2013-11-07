@@ -28,16 +28,42 @@ _sLangPhrase nLang pphrase = case M.lookup nLang $ pphrase ^. pSLangs of
                              Nothing -> pphrase ^. pSEnglish
                              Just val -> val
 
-{-
-replace :: [Text] -> [(Text, Text)] -> Text
-replace template repls = T.concat $ map (replace' repls) template
+phraseClauses :: PLang -> SLang -> Getter Phrase [Clause]
+phraseClauses pl sl = langPhrase pl . sLangPhrase sl . spClauses
+
+getClause :: Text -> PLang -> SLang -> Fold Phrases [Clause]
+getClause node pl sl = (at node . _Just) . phraseClauses pl sl
+
+type Variables = M.Map Text Text
+type Conditions = [Text]
+type CompConditions = M.Map Text Int
+
+insertClauses :: [Clause] -> Variables -> Conditions -> CompConditions -> Text
+insertClauses clauses vars conds cconds = T.concat . map insertClause $ clauses
   where
-    replace' repls toRepl
-      | "$$" `T.isPrefixOf` toRepl =
-          case lookup (T.drop 2 toRepl) repls of
-          Nothing -> toRepl 
-          Just r -> r
-      | otherwise = toRepl
+    insertClause :: Clause -> Text
+    insertClause (DefClause pieces) = replaceVars pieces
+    insertClause (CondClause cond pieces) = if evalCond cond
+                                            then replaceVars pieces
+                                            else ""
+    evalCond cc = if ccNot cc
+                  then evalCond' cc
+                  else not $ evalCond' cc
+    evalCond' (Present _ attr) = attr `elem` conds
+    evalCond' (Comp _ comp attr value) = maybe False compCond $ M.lookup attr cconds
+        where compCond :: Int -> Bool
+              compCond attrVal = attrVal `compare` value == comp
+
+    replaceVars pieces = T.concat $ map replaceVar pieces
+
+    replaceVar :: Text -> Text
+    replaceVar t
+        | "$$" `T.isPrefixOf` t = maybe t id $ M.lookup (T.drop 2 t) vars
+        | otherwise           = t
+{-
+instance AstNode Program where
+    toEng node = do
+       clause <- inner
 
 instance AstNode Program where
     toEng node = do
@@ -63,5 +89,4 @@ instance AstNode Statement where
                      Nothing -> phrase p "vardecl" l n
                      Just _ -> phrase p "vardecl.init" l n
         replacements = [("type", toEng typ), ("name", nm), ("init", toEng $ fromJust init)]
-
 -}

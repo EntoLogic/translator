@@ -10,7 +10,7 @@ import qualified Data.Vector as V
 import Control.Applicative((<$>), (<*>), pure)
 import Data.Text
 
-import Entologic.AST
+import Entologic.Ast
 
 data AstJson = AstJson UAST deriving Show
 
@@ -20,11 +20,11 @@ instance FromJSON Program where
     parseJSON (Array v) = Program <$> mapM parseJSON (V.toList v)
 
 instance FromJSON ProgramEntry where
-    parseJSON (Object o) = do
-        (String s) <- o .: "Node"
+    parseJSON o@(Object map) = do
+        (String s) <- map .: "Node"
         case s of
           "Function" -> PEFunc <$> parseJSON o
-          "ClassDecl" -> PECls <$> parseJSON o
+--          "ClassDecl" -> PECls <$> parseJSON o
 
 instance FromJSON AstJson where
     parseJSON (Object obj) = AstJson <$> obj .: "uast"
@@ -75,7 +75,7 @@ instance FromJSON Expression where
           Nothing -> fail $ "Invalid Expression type: " ++ unpack typ
       where
         parsers = [("Assignment", assignment), ("OpAssign", opAssign), ("BinExpr", binExpr), ("IntLit", intLit),
-                   ("PrefixOp", prefixOp), ("PostfixOp", PostfixOp)]
+                   ("PrefixOp", preOp), ("PostfixOp", postOp)]
 
 assignment obj = Assign <$> obj .: "Variable"
                         <*> obj .: "Value"
