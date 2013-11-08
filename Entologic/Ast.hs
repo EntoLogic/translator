@@ -1,5 +1,10 @@
 
-{-# LANGUAGE GADTs,ExistentialQuantification,FlexibleContexts,GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ExistentialQuantification,
+             FlexibleContexts,
+             GeneralizedNewtypeDeriving,
+             TemplateHaskell,
+             MultiParamTypeClasses,
+             InstanceSigs #-}
 
 module Entologic.Ast where
 
@@ -13,16 +18,34 @@ import Entologic.Phrase
 import qualified Data.Map as M
 
 import Control.Applicative
-import Control.Monad.Trans.State
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Writer
+import Control.Monad.Trans.State(StateT(..))
+import Control.Monad.State.Class
+import Control.Monad.Trans.Reader(ReaderT(..))
+import Control.Monad.Reader.Class
+import Control.Monad.Trans.Class
+import Control.Lens.TH
 
-data TLState = TLState 
+data TLState = TLState
+data TLInfo = TLInfo { _tlPhrases :: Phrases
+                     , _tlPLang :: PLang
+                     , _tlSLang :: SLang
+                     }
+              deriving (Eq, Ord, Show)
+
+$(makeLenses ''TLInfo)
 
 type WebTranslator = IO
 
-newtype TL a = TL (ReaderT Phrases (StateT TLState WebTranslator) a)
+newtype TL a = TL (ReaderT TLInfo (StateT TLState WebTranslator) a)
                deriving (Functor, Applicative, Monad)
+
+instance MonadState TLState TL where
+    get = TL get
+    put = TL . put
+
+instance MonadReader TLInfo TL where
+    ask = TL ask
+    local f (TL m) = TL $ local f m
 
 class AstNode a where
     toEng :: a -> TL Text
