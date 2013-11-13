@@ -7,10 +7,12 @@ import qualified Data.Map as M
 import Control.Applicative ((<$>))
 import qualified Data.Text as T
 import Data.Text(Text(..))
+import Data.Maybe (fromJust)
 
 import Entologic.Ast
 import Entologic.Phrase
 import Control.Lens
+import Control.Monad.Reader
 
 langPhrase :: PLang -> Getter Phrase PPhrase
 langPhrase lang = to $ _langPhrase lang
@@ -31,8 +33,14 @@ _sLangPhrase nLang pphrase = case M.lookup nLang $ pphrase ^. pSLangs of
 phraseClauses :: PLang -> SLang -> Getter Phrase [Clause]
 phraseClauses pl sl = langPhrase pl . sLangPhrase sl . spClauses
 
-getClause :: Text -> PLang -> SLang -> Fold Phrases [Clause]
-getClause node pl sl = (at node . _Just) . phraseClauses pl sl
+nodeClause :: Text -> PLang -> SLang -> Fold Phrases [Clause]
+nodeClause node pl sl = (at node . _Just) . phraseClauses pl sl
+
+getClauses :: Text -> TL (Maybe [Clause])
+getClauses node = do
+    (TLInfo phrases pl sl) <- ask
+    return $ phrases ^? nodeClause node pl sl
+    
 
 type Variables = M.Map Text Text
 type Conditions = [Text]
@@ -60,33 +68,58 @@ insertClauses clauses vars conds cconds = T.concat . map insertClause $ clauses
     replaceVar t
         | "$$" `T.isPrefixOf` t = maybe t id $ M.lookup (T.drop 2 t) vars
         | otherwise           = t
-{-
-instance AstNode Program where
-    toEng node = do
-       clause <- inner
 
 instance AstNode Program where
-    toEng node = do
+    translate node = do
+        clauses <- getClauses "program" 
+        contents <- T.concat <$> (mapM translate $ pEntries node)
+        let vars = M.fromList [("contents", contents)]
+        let conds = []
+        let cconds = M.empty
+        return $ insertClauses (fromJust clauses) vars conds cconds
+      where
+
+instance AstNode ProgramEntry where
+    translate (PEStm s) = toEng s
+    -- TODO: Other ProgramEntry types
+
+instance AstNode Statement where
+    translate (StmExpr e) = toEng e
+    -- TODO: Other Statement types
+
+instance AstNode Expression where
+    translate (BinOp op lexpr rexpr) = do
+        clauses <- getClauses "expression"
+        tOp <- translate op
+        left <- translate lexpr
+        right <- translate rexpr
+        let vars = M.fromList [("op", tOp), ("left", left), ("right", right)]
+        return $ insertClauses (fromJust clauses) vars conds cconds
+        
+
+{-
+instance AstNode Program where
+    translate node = do
         phrases <- cPhrases <$> get
         replace phraseContents replacements
       where
         phraseContents = maybe ["Error"] (nLangPhrase n . langPhrase lang) $ M.lookup "program" phrases
-        replacements = [("contents", foldl (T.append) "" $ map (toEng phrases lang) $ pEntries node)]
+        replacements = [("contents", foldl (T.append) "" $ map (translate phrases lang) $ pEntries node)]
 
 phrase :: Phrases -> Text -> Lang -> NLang -> [Text]
 phrases phrases name l nl = maybe ["Error"] (nLangPhrase nl . langPhrase l) $ M.lookup name phrases
 
         
 instance AstNode ProgramEntry where
-    toEng (PEFunc f) = toEng f
---    toEng p l (PECls c) = toEng p l c
---    toEng p l (PEStm s) = toEng p l s
+    translate (PEFunc f) = toEng f
+--    translate p l (PECls c) = toEng p l c
+--    translate p l (PEStm s) = toEng p l s
 
 instance AstNode Statement where
-    toEng p l n (VarDecl typ nm init) = replace contents replacements
+    translate p l n (VarDecl typ nm init) = replace contents replacements
       where
         contents = case init of
                      Nothing -> phrase p "vardecl" l n
                      Just _ -> phrase p "vardecl.init" l n
-        replacements = [("type", toEng typ), ("name", nm), ("init", toEng $ fromJust init)]
+        replacements = [("type", translate typ), ("name", nm), ("init", toEng $ fromJust init)]
 -}
