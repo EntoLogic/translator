@@ -90,12 +90,24 @@ instance AstNode Statement where
 instance AstNode Expression where
     translate (BinOp op lexpr rexpr) = do
         clauses <- getClauses "expression"
+        sOp <- iOpSym op
         tOp <- translate op
+        lOp <- iOpLong op
         left <- translate lexpr
         right <- translate rexpr
-        let vars = M.fromList [("op", tOp), ("left", left), ("right", right)]
+        let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
         return $ insertClauses (fromJust clauses) vars conds cconds
+
+iOpSym = undefined
+iOpLong = undefined
         
+instance AstNode InfixOp where
+    translate node = M.lookup translations
+      where
+        translations = M.fromList [(Plus, "plus"), (Minus, "minus"),
+            (Mult, "multiplied by"), (Div, "divided by"), (Mod, "modulo"), (LOr, "or"),
+            (LAnd, "and"), (BOr, "bitwise or"), (BAnd, "bitwise and"), (Xor, "xor"), (RShift, "bitwise shifted right by")
+            (LShift, "bitwise shifted left"), (RUShift, "bitwise unsigned-shifted right by")]
 
 {-
 instance AstNode Program where
