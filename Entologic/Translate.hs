@@ -80,11 +80,11 @@ instance AstNode Program where
       where
 
 instance AstNode ProgramEntry where
-    translate (PEStm s) = toEng s
+    translate (PEStm s) = translate s
     -- TODO: Other ProgramEntry types
 
 instance AstNode Statement where
-    translate (StmExpr e) = toEng e
+    translate (StmExpr e) = translate e
     -- TODO: Other Statement types
 
 instance AstNode Expression where
@@ -96,17 +96,19 @@ instance AstNode Expression where
         left <- translate lexpr
         right <- translate rexpr
         let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
+        let conds = []
+        let cconds = M.empty
         return $ insertClauses (fromJust clauses) vars conds cconds
 
 iOpSym = undefined
 iOpLong = undefined
         
 instance AstNode InfixOp where
-    translate node = M.lookup translations
+    translate node = return . fromJust $  M.lookup node translations
       where
         translations = M.fromList [(Plus, "plus"), (Minus, "minus"),
             (Mult, "multiplied by"), (Div, "divided by"), (Mod, "modulo"), (LOr, "or"),
-            (LAnd, "and"), (BOr, "bitwise or"), (BAnd, "bitwise and"), (Xor, "xor"), (RShift, "bitwise shifted right by")
+            (LAnd, "and"), (BOr, "bitwise or"), (BAnd, "bitwise and"), (Xor, "xor"), (RShift, "bitwise shifted right by"),
             (LShift, "bitwise shifted left"), (RUShift, "bitwise unsigned-shifted right by")]
 
 {-

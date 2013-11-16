@@ -64,7 +64,7 @@ data Program = Program { pEntries :: [ProgramEntry] }
 
 data Type = StringT Text
 --          | forall a. (ASTNode a, Show a) => LSType a
-            deriving (Show)
+            deriving (Show, Ord, Eq)
 
 
 data LSAny = forall a. (AstNode a, Show a) => LSAny a
@@ -94,21 +94,21 @@ data Function = Function { fName :: String
                 deriving (Show)
 
 data ParamDecl = ParamDecl { pName :: Text, pType :: (Maybe Type) }
-                 deriving (Show)
+                 deriving (Show, Ord, Eq)
 
 data Body = Body [Statement]
-            deriving (Show)
+            deriving (Show, Ord, Eq)
 
 data Statement = VarDecl { vdType :: Type
                          , vdName :: Text
                          , vdInit :: Maybe Expression
                          }
                | StmExpr Expression
-                 deriving (Show)
+                 deriving (Show, Ord, Eq)
 
 data VarRef = StringV Text
             | DottedV [Text]
-              deriving (Show)
+              deriving (Show, Ord, Eq)
 
 data InfixOp = Plus
              | Minus
@@ -123,17 +123,17 @@ data InfixOp = Plus
              | RShift
              | LShift
              | RUShift
-               deriving (Show)
+               deriving (Show, Ord, Eq)
 
 data PrefixOp = Neg
               | BInv
               | PreInc
               | PreDec
-                deriving (Show)
+                deriving (Show, Ord, Eq)
 
 data PostfixOp = PostInc
                | PostDec
-                 deriving (Show)
+                 deriving (Show, Ord, Eq)
 
 data Expression = Assign VarRef Expression
                 | OpAssign VarRef InfixOp Expression
@@ -142,4 +142,4 @@ data Expression = Assign VarRef Expression
                 | StringLit Text
                 | PreOp PrefixOp Expression
                 | PostOp PostfixOp Expression
-                  deriving (Show)
+                  deriving (Show, Ord, Eq)
