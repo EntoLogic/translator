@@ -8,6 +8,7 @@ import Control.Applicative ((<$>))
 import qualified Data.Text as T
 import Data.Text(Text(..))
 import Data.Maybe (fromJust)
+import Control.Monad.Error.Class
 
 import Entologic.Ast
 import Entologic.Phrase
@@ -36,10 +37,18 @@ phraseClauses pl sl = langPhrase pl . sLangPhrase sl . spClauses
 nodeClause :: Text -> PLang -> SLang -> Fold Phrases [Clause]
 nodeClause node pl sl = (at node . _Just) . phraseClauses pl sl
 
-getClauses :: Text -> TL (Maybe [Clause])
+eFromJust :: Maybe a -> TL a
+eFromJust (Just a) = return a
+eFromJust Nothing = throwError noMsg
+
+errFromJust :: String -> Maybe a -> TL a
+errFromJust _ (Just a) = return a
+errFromJust err Nothing = throwError err
+
+getClauses :: Text -> TL [Clause]
 getClauses node = do
     (TLInfo phrases pl sl) <- ask
-    return $ phrases ^? nodeClause node pl sl
+    errFromJust ("clauses for " ++ T.unpack node) $ phrases ^? nodeClause node pl sl
     
 
 type Variables = M.Map Text Text
@@ -76,7 +85,7 @@ instance AstNode Program where
         let vars = M.fromList [("contents", contents)]
         let conds = []
         let cconds = M.empty
-        return $ insertClauses (fromJust clauses) vars conds cconds
+        return $ insertClauses clauses vars conds cconds
       where
 
 instance AstNode ProgramEntry where
@@ -98,13 +107,13 @@ instance AstNode Expression where
         let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
         let conds = []
         let cconds = M.empty
-        return $ insertClauses (fromJust clauses) vars conds cconds
+        return $ insertClauses clauses vars conds cconds
 
 iOpSym = undefined
 iOpLong = undefined
         
 instance AstNode InfixOp where
-    translate node = return . fromJust $  M.lookup node translations
+    translate node = eFromJust $ M.lookup node translations
       where
         translations = M.fromList [(Plus, "plus"), (Minus, "minus"),
             (Mult, "multiplied by"), (Div, "divided by"), (Mod, "modulo"), (LOr, "or"),
