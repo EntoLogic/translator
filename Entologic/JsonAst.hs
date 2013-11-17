@@ -9,32 +9,42 @@ import qualified Data.Map as M
 import qualified Data.Vector as V
 import Control.Applicative((<$>), (<*>), pure)
 import Data.Text
+import qualified Data.ByteString.Lazy as L
 
 import Entologic.Ast
 
-data AstJson = AstJson UAST deriving Show
+data UAst = UAst {uMeta :: AstMeta, uProg :: Program} deriving Show
 
-data UAST = UAST Program deriving Show
+
+readAst :: FilePath -> IO UAst
+readAst path = do
+    json <- L.readFile path
+    either (return . error) return $ eitherDecode json
+
+
+instance FromJSON UAst where
+    parseJSON (Object map) = UAst <$> map .: "Meta"
+                                  <*> map .: "Program"
+
+instance FromJSON AstMeta where
+    parseJSON (Object map) = AstMeta <$> map .: "Language"
+                                     <*> map .: "SpokenLanguage"
 
 instance FromJSON Program where
     parseJSON (Array v) = Program <$> mapM parseJSON (V.toList v)
 
 instance FromJSON ProgramEntry where
     parseJSON o@(Object map) = do
-        (String s) <- map .: "Node"
+        (String s) <- map .: "node"
         case s of
           "Function" -> PEFunc <$> parseJSON o
+          _ -> PEStm <$> parseJSON o
 --          "ClassDecl" -> PECls <$> parseJSON o
 
-instance FromJSON AstJson where
-    parseJSON (Object obj) = AstJson <$> obj .: "uast"
-
-instance FromJSON UAST where
-    parseJSON (Object obj) = UAST <$> obj .: "Program"
 
 instance FromJSON Function where
     parseJSON (Object obj) = do
-       (String "Function") <- obj .: "Node"
+       (String "Function") <- obj .: "node"
        Function <$> obj .: "Name"
                 <*> obj .:? "RetType"
                 <*> obj .: "Arguments"
@@ -55,7 +65,7 @@ instance FromJSON Body where
 
 instance FromJSON Statement where
     parseJSON (Object obj) = do
-        (String typ) <- obj .: "Node"
+        (String typ) <- obj .: "node"
         case lookup typ parsers of
           Just f -> f obj
           Nothing -> StmExpr <$> parseJSON (Object obj)
@@ -69,12 +79,12 @@ varDecl obj = VarDecl <$> obj .: "Type"
 
 instance FromJSON Expression where
     parseJSON (Object obj) = do
-        (String typ) <- obj .: "Node"
+        (String typ) <- obj .: "node"
         case lookup typ parsers of
           Just f -> f obj
           Nothing -> fail $ "Invalid Expression type: " ++ unpack typ
       where
-        parsers = [("Assignment", assignment), ("OpAssign", opAssign), ("BinExpr", binExpr), ("IntLit", intLit),
+        parsers = [("Assignment", assignment), ("OpAssign", opAssign), ("BinaryExpr", binExpr), ("IntLit", intLit),
                    ("PrefixOp", preOp), ("PostfixOp", postOp)]
 
 assignment obj = Assign <$> obj .: "Variable"
@@ -84,9 +94,9 @@ opAssign obj = OpAssign <$> obj .: "Variable"
                         <*> obj .: "Op"
                         <*> obj .: "Value"
 
-binExpr obj = BinOp <$> obj .: "Op"
-                    <*> obj .: "FirstArg"
-                    <*> obj .: "SecondArg"
+binExpr obj = BinOp <$> obj .: "op"
+                    <*> obj .: "left"
+                    <*> obj .: "right"
 
 preOrPostOp const obj = const <$> obj .: "Op"
                               <*> obj .: "Arg"
@@ -108,7 +118,7 @@ instance FromJSON PostfixOp where
 preOp = preOrPostOp PreOp
 postOp = preOrPostOp PostOp
 
-intLit obj = IntLit . read <$> obj .: "Val"
+intLit obj = IntLit . read <$> obj .: "value"
 
 instance FromJSON VarRef where
     parseJSON (String s) = pure $ StringV s
@@ -118,6 +128,6 @@ instance FromJSON InfixOp where
         (Just op) <- return $ lookup s ops
         return op
       where
-        ops = [("Add", Plus), ("Sub", Minus), ("Mult", Mult), ("Div", Div),
-               ("Mod", Mod), ("LOr", LOr), ("LAnd", LAnd), ("BOr", BOr),
-               ("BAnd", BAnd), ("Xor", Xor), ("RShift", RShift), ("LShift", LShift), ("RUShift", RUShift)]
+        ops = [("add", Plus), ("sub", Minus), ("multiply", Mult), ("divide", Div),
+               ("modulo", Mod), ("logicalOr", LOr), ("logicalAnd", LAnd), ("bitOr", BOr),
+               ("bitAnd", BAnd), ("xor", Xor), ("rShift", RShift), ("lShift", LShift), ("rUShift", RUShift)]

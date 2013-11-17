@@ -4,7 +4,9 @@
              GeneralizedNewtypeDeriving,
              TemplateHaskell,
              MultiParamTypeClasses,
-             InstanceSigs #-}
+             InstanceSigs,
+             TypeSynonymInstances,
+             FlexibleInstances#-}
 
 module Entologic.Ast where
 
@@ -18,10 +20,12 @@ import Entologic.Phrase
 import qualified Data.Map as M
 
 import Control.Applicative
-import Control.Monad.Trans.State.Lazy(StateT(..))
+import Control.Monad.Trans.State.Lazy(StateT(..), evalStateT)
 import Control.Monad.State.Class
 import Control.Monad.Trans.Reader(ReaderT(..))
 import Control.Monad.Reader.Class
+import Control.Monad.Error.Class
+import Control.Monad.Trans.Error(ErrorT(..))
 import Control.Monad.Trans.Class
 import Control.Lens.TH
 
@@ -36,7 +40,9 @@ $(makeLenses ''TLInfo)
 
 type WebTranslator = IO
 
-newtype TL a = TL (ReaderT TLInfo (StateT TLState WebTranslator) a)
+type TLError = String
+
+newtype TL a = TL { unTL :: (ErrorT TLError (ReaderT TLInfo (StateT TLState WebTranslator)) a) }
                deriving (Functor, Applicative, Monad)
 
 instance MonadState TLState TL where
@@ -46,6 +52,17 @@ instance MonadState TLState TL where
 instance MonadReader TLInfo TL where
     ask = TL ask
     local f (TL m) = TL $ local f m
+
+instance MonadError TLError TL where
+    throwError = TL . throwError
+    catchError (TL m) f = TL $ catchError m (unTL . f)
+
+runTL :: TLInfo -> TLState -> TL a -> IO (Either TLError a)
+runTL info s tl = (flip evalStateT s) . (flip runReaderT info) . runErrorT . unTL $ tl
+
+
+data AstMeta = AstMeta { mPLang :: PLang, mSLang :: SLang }
+               deriving (Show)
 
 class AstNode a where
     translate :: a -> TL Text

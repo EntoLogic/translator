@@ -2,40 +2,17 @@
 {
   "Meta":
   {
-    "Language": "Ruby"
+    "Language": "Ruby",
+    "SpokenLanguage": "en"
   },
 
-  "uast":
-  {
-    "Program":
-    [
-      {
-        "Node": "Function",
-        "Name": "two_and_three",
-        "Arguments": ["x", "y", "z"],
-        "Body":
-        [
-          {
-            "Node": "Assignment",
-            "Variable": "x",
-            "Value":
-            {
-              "Node": "BinExpr",
-              "Op": "Add",
-              "FirstArg":
-              {
-                "Node": "IntLit",
-                "Val": "2"
-              },
-              "SecondArg":
-              {
-                "Node": "IntLit",
-                "Val": "3"
-              }
-            }
-          }
-        ]
-      }
-    ]
-  }
+  "Program":
+  [
+    {
+      "node": "BinaryExpr",
+      "op": "add",
+      "left": { "node": "IntLit", "value": "2"},
+      "right": { "node": "IntLit", "value": "3"}
+    }
+  ]
 }
