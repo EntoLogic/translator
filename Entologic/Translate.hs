@@ -99,12 +99,12 @@ instance AstNode Statement where
 instance AstNode Expression where
     translate (BinOp op lexpr rexpr) = do
         clauses <- getClauses "BinaryExpr"
-        sOp <- iOpSym op
+--        sOp <- iOpSym op
         tOp <- translate op
-        lOp <- iOpLong op
+--        lOp <- iOpLong op
         left <- translate lexpr
         right <- translate rexpr
-        let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
+        let vars = M.fromList [{-("opSymbol", sOp), -}("opText", tOp), {-("opTextLong", lOp), -}("left", left), ("right", right)]
         let conds = []
         let cconds = M.empty
         return $ insertClauses clauses vars conds cconds

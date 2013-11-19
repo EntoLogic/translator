@@ -10,7 +10,7 @@
   [
     {
       "node": "BinaryExpr",
-      "op": "add",
+      "op": "bitOr",
       "left": { "node": "IntLit", "value": "2"},
       "right": { "node": "IntLit", "value": "3"}
     }

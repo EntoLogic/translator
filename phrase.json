@@ -6,13 +6,29 @@
             "nlang": "en",
             "clauses": [
                 ["$$left",
+                " ",
                 "$$opText",
+                " ",
                 "$$right"]
             ]
         },
         "nlangs": {}
     },
     "pLangs": {}
-}        
+},       
+{
+    "node": "IntLit",
+    "default": {
+        "lang": "default",
+        "en": {
+            "nlang": "en",
+            "clauses": [
+                ["$$value"]
+            ]
+        },
+        "nlangs": {}
+    },
+    "pLangs": {}
+}
 ]
 
