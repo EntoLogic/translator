@@ -98,7 +98,7 @@ instance AstNode Statement where
 
 instance AstNode Expression where
     translate (BinOp op lexpr rexpr) = do
-        clauses <- getClauses "expression"
+        clauses <- getClauses "BinaryExpr"
         sOp <- iOpSym op
         tOp <- translate op
         lOp <- iOpLong op
@@ -108,6 +108,10 @@ instance AstNode Expression where
         let conds = []
         let cconds = M.empty
         return $ insertClauses clauses vars conds cconds
+    translate (IntLit val) = do
+        clauses <- getClauses "IntLit"
+        let vars = M.fromList [("value", T.pack $ show val)]
+        return $ insertClauses clauses vars [] M.empty
 
 iOpSym = undefined
 iOpLong = undefined

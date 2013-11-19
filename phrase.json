@@ -1,22 +1,18 @@
 [{
-    "node": "function",
-    "default": [{
-        "nlang": "en",
-        "clauses": [
-            "define a function called ",
-            "$$name"
-        ]
-    }],
-    "pLangs": {
-        "java": [{
+    "node": "BinaryExpr",
+    "default": {
+        "lang": "default",
+        "en": {
             "nlang": "en",
             "clauses": [
-                "define a function called",
-                "$$name",
-                "taking the arguments:",
-                "$$args"
+                "$$left",
+                "$$opText",
+                "$$right"
             ]
-        }]
-    }
-}]
+        },
+        "nlangs": {}
+    },
+    "pLangs": {}
+}        
+]
 

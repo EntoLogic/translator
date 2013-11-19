@@ -8,8 +8,14 @@ import Data.Aeson
 import qualified Data.Vector as V
 import qualified Data.Text as T
 import qualified Data.Map as M
+import qualified Data.ByteString.Lazy as L
 import Control.Applicative
 import Control.Lens
+
+readPhrases :: FilePath -> IO Phrases
+readPhrases path = do
+    json <- L.readFile path
+    either (return . error) return $ eitherDecode json
 
 instance FromJSON (M.Map T.Text Phrase) where
     parseJSON (Array ar) = do
@@ -37,7 +43,7 @@ instance FromJSON SPhrase where
                 <*> obj .: "clauses"
 
 instance FromJSON Clause where
-    parseJSON a@(Array _) = DefClause <$> parseJSON a
+    parseJSON (String s) = return $ DefClause s
     parseJSON (Object obj) =
         CondClause <$> obj .: "condition"
                    <*> obj .: "clause"
