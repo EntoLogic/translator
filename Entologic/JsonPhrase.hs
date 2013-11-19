@@ -43,7 +43,7 @@ instance FromJSON SPhrase where
                 <*> obj .: "clauses"
 
 instance FromJSON Clause where
-    parseJSON (String s) = return $ DefClause s
+    parseJSON a@(Array _) = DefClause <$> parseJSON a
     parseJSON (Object obj) =
         CondClause <$> obj .: "condition"
                    <*> obj .: "clause"

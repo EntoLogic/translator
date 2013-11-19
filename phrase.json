@@ -5,9 +5,9 @@
         "en": {
             "nlang": "en",
             "clauses": [
-                "$$left",
+                ["$$left",
                 "$$opText",
-                "$$right"
+                "$$right"]
             ]
         },
         "nlangs": {}

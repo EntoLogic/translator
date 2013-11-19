@@ -30,7 +30,7 @@ data SPhrase = SPhrase { _spLang :: Text
                        }
                deriving (Ord, Eq, Show)
 
-data Clause = DefClause Text
+data Clause = DefClause [Text]
             | CondClause { cond :: ClauseCond, clause :: [Text] }
               deriving (Ord, Eq, Show)
 
