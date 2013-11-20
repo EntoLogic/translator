@@ -11,9 +11,7 @@
 module Entologic.Ast where
 
 import Data.Text
-import Database.MongoDB.Query
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Control
 
 import Entologic.Phrase
 
