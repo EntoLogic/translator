@@ -1,5 +1,8 @@
 
-{-# LANGUAGE OverloadedStrings,ExtendedDefaultRules,GeneralizedNewtypeDeriving,RankNTypes #-}
+{-# LANGUAGE OverloadedStrings,
+             ExtendedDefaultRules,
+             GeneralizedNewtypeDeriving,
+             RankNTypes #-}
 
 module Entologic.Translate where
 
@@ -99,12 +102,12 @@ instance AstNode Statement where
 instance AstNode Expression where
     translate (BinOp op lexpr rexpr) = do
         clauses <- getClauses "BinaryExpr"
---        sOp <- iOpSym op
+        sOp <- iOpSym op
         tOp <- translate op
---        lOp <- iOpLong op
+        lOp <- iOpLong op
         left <- translate lexpr
         right <- translate rexpr
-        let vars = M.fromList [{-("opSymbol", sOp), -}("opText", tOp), {-("opTextLong", lOp), -}("left", left), ("right", right)]
+        let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
         let conds = []
         let cconds = M.empty
         return $ insertClauses clauses vars conds cconds
@@ -113,16 +116,20 @@ instance AstNode Expression where
         let vars = M.fromList [("value", T.pack $ show val)]
         return $ insertClauses clauses vars [] M.empty
 
-iOpSym = undefined
-iOpLong = undefined
+iOpSym = const $ return ""
+iOpLong = const $ return undefined
         
 instance AstNode InfixOp where
-    translate node = eFromJust $ M.lookup node translations
+    translate node = do
+        node <- eFromJust $ M.lookup node translations
+        clauses <- getClauses node
+        return $ insertClauses clauses M.empty [] M.empty
       where
-        translations = M.fromList [(Plus, "plus"), (Minus, "minus"),
-            (Mult, "multiplied by"), (Div, "divided by"), (Mod, "modulo"), (LOr, "or"),
-            (LAnd, "and"), (BOr, "bitwise or"), (BAnd, "bitwise and"), (Xor, "xor"), (RShift, "bitwise shifted right by"),
-            (LShift, "bitwise shifted left"), (RUShift, "bitwise unsigned-shifted right by")]
+        translations = M.fromList [(Plus, "add"), (Minus, "subtract"),
+            (Mult, "multiply"), (Div, "divide"), (Mod, "modulo"),
+            (LOr, "logicalOr"), (LAnd, "logicalAnd"), (BOr, "bitOr"), (BAnd, "bitAnd"),
+            (Xor, "xor"), (RShift, "rShift"),
+            (LShift, "lShift"), (RUShift, "ruShift")]
 
 {-
 instance AstNode Program where
