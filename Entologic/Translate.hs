@@ -95,12 +95,13 @@ chooseM cond x y = cond <$$> \c -> if c then x else y
 chooseL :: (MonadState s m, Functor m) => Getter s Bool -> a -> a -> m a
 chooseL getter = chooseM (use getter)
 
-localState :: MonadState s m => (s -> s) -> m a -> m a
-localState mod action = do
-    before <- ask
+localS :: MonadState s m => (s -> s) -> m a -> m a
+localS mod action = do
+    before <- get
     put $ mod before
-    action
+    a <- action
     put before
+    return a
 
 instance AstNode Program where
     translate node = do
@@ -126,12 +127,17 @@ instance AstNode Expression where
         sOp <- iOpSym op
         tOp <- translate op
         lOp <- iOpLong op
-        left <- translate lexpr
-        right <- translate rexpr
+        left <- subexpr $ translate lexpr
+        right <- subexpr $ translate rexpr
+
+        parens <- chooseL sInSubExpr (bracket '(' ')') id
         let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
         let conds = []
         let cconds = M.empty
-        return $ insertClauses clauses vars conds cconds
+
+        return . parens $ insertClauses clauses vars conds cconds
+      where
+        subexpr = localS (sInSubExpr .~ True)
     translate (IntLit val) = do
         clauses <- getClauses "IntLit"
         let vars = M.fromList [("value", T.pack $ show val)]
@@ -144,8 +150,7 @@ instance AstNode InfixOp where
     translate node = do
         node <- eFromJust $ M.lookup node translations
         clauses <- getClauses node
-        parens <- chooseL sInSubExpr (bracket '(' ')') id
-        return . parens $ insertClauses clauses M.empty [] M.empty
+        return $ insertClauses clauses M.empty [] M.empty
       where
         translations = M.fromList [(Plus, "add"), (Minus, "subtract"),
             (Mult, "multiply"), (Div, "divide"), (Mod, "modulo"),
