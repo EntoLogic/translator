@@ -125,7 +125,6 @@ instance AstNode Expression where
 iOpSym = const $ return ""
 iOpLong = const $ return undefined
 
-        
 instance AstNode InfixOp where
     translate node = do
         node <- eFromJust $ M.lookup node translations
@@ -142,29 +141,3 @@ instance AstNode InfixOp where
             (Xor, "xor"), (RShift, "rShift"),
             (LShift, "lShift"), (RUShift, "ruShift")]
 
-{-
-instance AstNode Program where
-    translate node = do
-        phrases <- cPhrases <$> get
-        replace phraseContents replacements
-      where
-        phraseContents = maybe ["Error"] (nLangPhrase n . langPhrase lang) $ M.lookup "program" phrases
-        replacements = [("contents", foldl (T.append) "" $ map (translate phrases lang) $ pEntries node)]
-
-phrase :: Phrases -> Text -> Lang -> NLang -> [Text]
-phrases phrases name l nl = maybe ["Error"] (nLangPhrase nl . langPhrase l) $ M.lookup name phrases
-
-        
-instance AstNode ProgramEntry where
-    translate (PEFunc f) = toEng f
---    translate p l (PECls c) = toEng p l c
---    translate p l (PEStm s) = toEng p l s
-
-instance AstNode Statement where
-    translate p l n (VarDecl typ nm init) = replace contents replacements
-      where
-        contents = case init of
-                     Nothing -> phrase p "vardecl" l n
-                     Just _ -> phrase p "vardecl.init" l n
-        replacements = [("type", translate typ), ("name", nm), ("init", toEng $ fromJust init)]
--}
