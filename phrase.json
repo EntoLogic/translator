@@ -3,7 +3,7 @@
     "default": {
         "lang": "default",
         "en": {
-            "nlang": "en",
+            "slang": "en",
             "clauses": [
                 ["$$left",
                 " ",
@@ -12,23 +12,47 @@
                 "$$right"]
             ]
         },
-        "nlangs": {}
+        "slangs": {}
     },
-    "pLangs": {}
+    "plangs": {}
 },       
 {
     "node": "IntLit",
     "default": {
-        "lang": "default",
         "en": {
-            "nlang": "en",
+            "slang": "en",
             "clauses": [
                 ["$$value"]
             ]
         },
-        "nlangs": {}
+        "slangs": {}
     },
-    "pLangs": {}
+    "plangs": {}
+},
+{
+    "node": "add",
+    "default": {
+        "en": {
+            "clauses": [
+                ["plus"]
+            ]
+        },
+        "slangs": {}
+    },
+    "plangs": {}
+},
+{
+    "node": "multiply",
+    "default": {
+        "en": {
+            "clauses": [
+                ["multiplied by"]
+            ]
+        },
+        "slangs": {}
+    },
+    "plangs": {}
 }
+
 ]
 

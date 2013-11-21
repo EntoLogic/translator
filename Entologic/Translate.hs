@@ -95,6 +95,13 @@ chooseM cond x y = cond <$$> \c -> if c then x else y
 chooseL :: (MonadState s m, Functor m) => Getter s Bool -> a -> a -> m a
 chooseL getter = chooseM (use getter)
 
+localState :: MonadState s m => (s -> s) -> m a -> m a
+localState mod action = do
+    before <- ask
+    put $ mod before
+    action
+    put before
+
 instance AstNode Program where
     translate node = do
         clauses <- getClauses "program" 

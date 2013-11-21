@@ -10,9 +10,14 @@
   [
     {
       "node": "BinaryExpr",
-      "op": "bitOr",
+      "op": "add",
       "left": { "node": "IntLit", "value": "2"},
-      "right": { "node": "IntLit", "value": "3"}
+      "right": {
+        "node": "BinaryExpr",
+        "op": "multiply",
+        "left": {"node": "IntLit", "value": "3"},
+        "right": {"node": "IntLit", "value": "4"}
+      }
     }
   ]
 }

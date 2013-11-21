@@ -26,20 +26,24 @@ instance FromJSON (M.Map T.Text Phrase) where
         insert map phrase = M.insert (phrase ^. phNode) phrase map
 
 instance FromJSON Phrase where
-    parseJSON (Object obj) =
+    parseJSON o@(Object obj) =
         Phrase <$> obj .: "node"
-               <*> obj .: "default"
-               <*> obj .: "pLangs"
+               <*> (pphrase "default" =<< obj .: "default")
+               <*> obj .: "plangs"
+
+pphrase name (Object obj) = PPhrase name <$> (sphrase "en" =<< obj .: "en") <*> obj .: "slangs"
 
 instance FromJSON PPhrase where
     parseJSON (Object obj) =
         PPhrase <$> obj .: "lang"
-                <*> obj .: "en"
-                <*> obj .: "nlangs"
+                <*> (sphrase "en" =<< obj .: "en")
+                <*> obj .: "slangs"
+
+sphrase name (Object obj) = SPhrase name <$> obj .: "clauses"
 
 instance FromJSON SPhrase where
     parseJSON (Object obj) =
-        SPhrase <$> obj .: "nlang"
+        SPhrase <$> obj .: "slang"
                 <*> obj .: "clauses"
 
 instance FromJSON Clause where
