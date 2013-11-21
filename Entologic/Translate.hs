@@ -17,6 +17,7 @@ import Entologic.Ast
 import Entologic.Phrase
 import Control.Lens
 import Control.Monad.Reader
+import Control.Monad.State.Class
 
 bracket x y = T.cons x . flip T.snoc y
 
@@ -87,6 +88,13 @@ insertClauses clauses vars conds cconds = T.concat . map insertClause $ clauses
         | "$$" `T.isPrefixOf` t = maybe t id $ M.lookup (T.drop 2 t) vars
         | otherwise           = t
 
+
+chooseM :: Functor m => m Bool -> a -> a -> m a
+chooseM cond x y = cond <$$> \c -> if c then x else y
+
+chooseL :: (MonadState s m, Functor m) => Getter s Bool -> a -> a -> m a
+chooseL getter = chooseM (use getter)
+
 instance AstNode Program where
     translate node = do
         clauses <- getClauses "program" 
@@ -129,11 +137,8 @@ instance AstNode InfixOp where
     translate node = do
         node <- eFromJust $ M.lookup node translations
         clauses <- getClauses node
-        parens <- (use sInSubExpr) <$$> \x ->
-                     if x
-                     then bracket '(' ')'
-                     else id
-        return $ insertClauses clauses M.empty [] M.empty
+        parens <- chooseL sInSubExpr (bracket '(' ')') id
+        return . parens $ insertClauses clauses M.empty [] M.empty
       where
         translations = M.fromList [(Plus, "add"), (Minus, "subtract"),
             (Mult, "multiply"), (Div, "divide"), (Mod, "modulo"),
