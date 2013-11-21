@@ -27,7 +27,8 @@ import Control.Monad.Trans.Error(ErrorT(..))
 import Control.Monad.Trans.Class
 import Control.Lens.TH
 
-data TLState = TLState
+data TLState = TLState { _sInSubExpr :: Bool
+                       }
 data TLInfo = TLInfo { _tlPhrases :: Phrases
                      , _tlPLang :: PLang
                      , _tlSLang :: SLang
@@ -35,6 +36,7 @@ data TLInfo = TLInfo { _tlPhrases :: Phrases
               deriving (Eq, Ord, Show)
 
 $(makeLenses ''TLInfo)
+$(makeLenses ''TLState)
 
 type WebTranslator = IO
 

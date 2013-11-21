@@ -18,6 +18,12 @@ import Entologic.Phrase
 import Control.Lens
 import Control.Monad.Reader
 
+bracket x y = T.cons x . flip T.snoc y
+
+(<$$>) :: Functor f => f a -> (a -> b) -> f b
+(<$$>) = flip (<$>)
+infixl 4 <$$>
+
 langPhrase :: PLang -> Getter Phrase PPhrase
 langPhrase lang = to $ _langPhrase lang
 
@@ -118,11 +124,16 @@ instance AstNode Expression where
 
 iOpSym = const $ return ""
 iOpLong = const $ return undefined
+
         
 instance AstNode InfixOp where
     translate node = do
         node <- eFromJust $ M.lookup node translations
         clauses <- getClauses node
+        parens <- (use sInSubExpr) <$$> \x ->
+                     if x
+                     then bracket '(' ')'
+                     else id
         return $ insertClauses clauses M.empty [] M.empty
       where
         translations = M.fromList [(Plus, "add"), (Minus, "subtract"),
