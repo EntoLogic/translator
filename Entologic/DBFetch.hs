@@ -9,6 +9,7 @@ import qualified Data.Text as T
 import Data.Map(Map(..))
 import Data.Text(Text(..))
 import Data.Int
+import qualified Data.Traversable as TV
 
 import Control.Applicative
 import Control.Monad
@@ -17,6 +18,8 @@ import System.Environment
 
 import Database.MongoDB hiding (lookup)
 import qualified Database.MongoDB as DB
+
+import Entologic.Phrase
 
 main :: IO ()
 main = do
@@ -33,6 +36,7 @@ dbAccess = do
     docs <- rest =<< DB.find (select [] "phrases")
     nodes <- mFromJust $ sortPhrases docs
     let nodes' = topVotedNodes nodes
+    let phrases = M.mapWithKey toPhrase nodes'
     return ()
 
 sortPhrases :: [Document] -> Maybe (Map Text (Map Text (Map Text [Document])))
@@ -58,3 +62,27 @@ topVotedNodes = fmap.fmap.fmap $ maximumBy cmpVotes
     cmpVotes d1 d2 = compare (votes d1) (votes d2)
     votes phrase = foldl count 0 (DB.at "votes" phrase)
     count acc (k := (Doc vote)) = acc + (DB.at "value" vote :: Int32)
+
+-- a = Phrase; b = Map Text Document; c = PPhrase
+toGenPhrase :: (Text -> c -> Map Text c -> a) -> Text -> (Text -> b -> Maybe c)
+                                              -> Text -> Map Text b -> Maybe a
+toGenPhrase constr def subFunc name map =
+    constr name <$> (subFunc def =<< (M.lookup def map)) <*>
+                    (TV.sequence . M.mapWithKey subFunc . M.filterWithKey notDef $ map)
+  where
+    notDef k _ = k /= def
+
+toPhrase :: Text -> Map Text (Map Text Document) -> Maybe Phrase
+toPhrase = toGenPhrase Phrase "default" toPPhrase
+
+toPPhrase :: Text -> Map Text Document -> Maybe PPhrase
+toPPhrase = toGenPhrase PPhrase "en" toSPhrase
+
+toSPhrase :: Text -> Document -> Maybe SPhrase
+toSPhrase name doc = undefined
+{-
+toPhrase :: Text -> Map Text Document -> Maybe PPhrase
+toPPhrase name map = PPhrase name <$> M.lookup "en" map <*>
+                      (mapWithKey toSPhrase . filterWithKey notEn $ map)
+  where notEn k _ = k /= "en"
+-}
