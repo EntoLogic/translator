@@ -79,7 +79,30 @@ toPPhrase :: Text -> Map Text Document -> Maybe PPhrase
 toPPhrase = toGenPhrase PPhrase "en" toSPhrase
 
 toSPhrase :: Text -> Document -> Maybe SPhrase
-toSPhrase name doc = undefined
+toSPhrase name doc =
+    let clauseDocs = DB.lookup "clauses" doc :: Maybe [Document]
+        clauses = mapM toClause =<< clauseDocs
+    in SPhrase name <$> clauses
+
+
+toClause :: Document -> Maybe Clause
+toClause doc = case DB.lookup "condition" doc of
+                 Nothing -> DefClause <$> DB.lookup "words" doc
+                 (Just cond) -> CondClause <$> toClauseCond cond <*> DB.lookup "words" doc
+    
+toClauseCond :: Document -> Maybe ClauseCond
+toClauseCond doc =
+    case DB.lookup "conditionType" doc :: Maybe Text of
+      (Just "presence") -> Present reverse <$> DB.lookup "attribute" doc
+      (Just "comparison") -> Comp reverse <$> comp <*>
+                DB.lookup "attribute" doc <*> DB.lookup "compared_with" doc
+      _ -> Nothing
+  where
+    reverse = case DB.lookup "reverse" doc of
+                (Just True) -> True
+                _ -> False
+    comp = read . T.unpack <$> DB.lookup "comparator" doc
+
 {-
 toPhrase :: Text -> Map Text Document -> Maybe PPhrase
 toPPhrase name map = PPhrase name <$> M.lookup "en" map <*>
