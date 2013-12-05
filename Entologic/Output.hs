@@ -8,6 +8,7 @@ import Control.Lens.TH
 
 data OutputNode = OutputNode { _oNode :: Text
                              , _oClauses :: [OutputClause]
+                             , _oIndent :: Bool
                              , _loc :: Area }
 
 data OutputClause = OCString Text

@@ -104,16 +104,17 @@ localS mod action = do
     put before
     return a
 
-result :: (AstNode a) => a -> Text -> OutputNode
-result node content = OutputNode (name node) [(OCString content)] (Area Nothing Nothing)
+result :: (AstNode a) => a -> Text -> OutputClause
+result node content = OCNode $ OutputNode (name node) [(OCString content)] False (Area Nothing Nothing)
 
-on2Text (OutputNode _ ((OCString t):_) _) = t
+on2Text (OutputNode _ ((OCString t):_) _ _) = t
+oc2Text (OCNode x) = on2Text x
 
 instance AstNode Program where
     name = const "program"
     translate node = do
         clauses <- getClauses "program" 
-        contents <- T.concat <$> (mapM (fmap on2Text . translate) $ pEntries node)
+        contents <- T.concat <$> (mapM (fmap oc2Text . translate) $ pEntries node)
         let vars = M.fromList [("contents", contents)]
         let conds = []
         let cconds = M.empty
@@ -133,10 +134,10 @@ instance AstNode Expression where
     translate node@(BinOp op lexpr rexpr) = do
         clauses <- getClauses "BinaryExpr"
         sOp <- iOpSym op
-        tOp <- on2Text <$> translate op
+        tOp <- oc2Text <$> translate op
         lOp <- iOpLong op
-        left <- subexpr $ on2Text <$> translate lexpr
-        right <- subexpr $ on2Text <$> translate rexpr
+        left <- subexpr $ oc2Text <$> translate lexpr
+        right <- subexpr $ oc2Text <$> translate rexpr
 
         parens <- chooseL sInSubExpr (bracket '(' ')') id
         let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
