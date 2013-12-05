@@ -6,7 +6,8 @@
              MultiParamTypeClasses,
              InstanceSigs,
              TypeSynonymInstances,
-             FlexibleInstances#-}
+             FlexibleInstances,
+             OverloadedStrings #-}
 
 module Entologic.Ast where
 
@@ -14,6 +15,7 @@ import Data.Text
 import Control.Monad.IO.Class
 
 import Entologic.Phrase
+import Entologic.Output
 
 import qualified Data.Map as M
 
@@ -65,8 +67,10 @@ data AstMeta = AstMeta { mPLang :: PLang, mSLang :: SLang }
                deriving (Show)
 
 class AstNode a where
-    translate :: a -> TL Text
+    translate :: a -> TL OutputNode
     translate = undefined
+    name :: a -> Text
+    name = const ""
 
 data NInf = NInf {lineNo :: Int}
             deriving (Show)

@@ -15,6 +15,7 @@ import Control.Monad.Error.Class
 
 import Entologic.Ast
 import Entologic.Phrase
+import Entologic.Output
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Class
@@ -103,17 +104,23 @@ localS mod action = do
     put before
     return a
 
+result :: (AstNode a) => a -> Text -> OutputNode
+result node content = OutputNode (name node) [(OCString content)] (Area Nothing Nothing)
+
+on2Text (OutputNode _ ((OCString t):_) _) = t
+
 instance AstNode Program where
+    name = const "program"
     translate node = do
         clauses <- getClauses "program" 
-        contents <- T.concat <$> (mapM translate $ pEntries node)
+        contents <- T.concat <$> (mapM (fmap on2Text . translate) $ pEntries node)
         let vars = M.fromList [("contents", contents)]
         let conds = []
         let cconds = M.empty
-        return $ insertClauses clauses vars conds cconds
-      where
+        return . result node $ insertClauses clauses vars conds cconds
 
 instance AstNode ProgramEntry where
+    name (PEStm s) = name s
     translate (PEStm s) = translate s
     -- TODO: Other ProgramEntry types
 
@@ -122,35 +129,36 @@ instance AstNode Statement where
     -- TODO: Other Statement types
 
 instance AstNode Expression where
-    translate (BinOp op lexpr rexpr) = do
+    name (BinOp {}) = "BinaryExpr"
+    translate node@(BinOp op lexpr rexpr) = do
         clauses <- getClauses "BinaryExpr"
         sOp <- iOpSym op
-        tOp <- translate op
+        tOp <- on2Text <$> translate op
         lOp <- iOpLong op
-        left <- subexpr $ translate lexpr
-        right <- subexpr $ translate rexpr
+        left <- subexpr $ on2Text <$> translate lexpr
+        right <- subexpr $ on2Text <$> translate rexpr
 
         parens <- chooseL sInSubExpr (bracket '(' ')') id
         let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
         let conds = []
         let cconds = M.empty
 
-        return . parens $ insertClauses clauses vars conds cconds
+        return . result node . parens $ insertClauses clauses vars conds cconds
       where
         subexpr = localS (sInSubExpr .~ True)
-    translate (IntLit val) = do
+    translate node@(IntLit val) = do
         clauses <- getClauses "IntLit"
         let vars = M.fromList [("value", T.pack $ show val)]
-        return $ insertClauses clauses vars [] M.empty
+        return . result node $ insertClauses clauses vars [] M.empty
 
 iOpSym = const $ return ""
 iOpLong = const $ return undefined
 
 instance AstNode InfixOp where
     translate node = do
-        node <- eFromJust $ M.lookup node translations
-        clauses <- getClauses node
-        return $ insertClauses clauses M.empty [] M.empty
+        node_ <- eFromJust $ M.lookup node translations
+        clauses <- getClauses node_
+        return . result node $ insertClauses clauses M.empty [] M.empty
       where
         translations = M.fromList [(Plus, "add"), (Minus, "subtract"),
             (Mult, "multiply"), (Div, "divide"), (Mod, "modulo"),
