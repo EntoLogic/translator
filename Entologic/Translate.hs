@@ -10,7 +10,7 @@ import qualified Data.Map as M
 import Control.Applicative ((<$>))
 import qualified Data.Text as T
 import Data.Text(Text(..))
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, mapMaybe)
 import Control.Monad.Error.Class
 
 import Entologic.Ast
@@ -21,6 +21,9 @@ import Control.Monad.Reader
 import Control.Monad.State.Class
 
 bracket x y = T.cons x . flip T.snoc y
+
+bracket' :: Char -> Char -> [OutputClause] -> [OutputClause]
+bracket' x y = cons (OCString $ T.pack [x]) . flip snoc (OCString $ T.pack [y])
 
 (<$$>) :: Functor f => f a -> (a -> b) -> f b
 (<$$>) = flip (<$>)
@@ -62,18 +65,21 @@ getClauses node = do
     errFromJust ("clauses for " ++ T.unpack node) $ phrases ^? nodeClause node pl sl
     
 
-type Variables = M.Map Text Text
+type Variables = M.Map Text OutputClause
 type Conditions = [Text]
 type CompConditions = M.Map Text Int
 
-insertClauses :: [Clause] -> Variables -> Conditions -> CompConditions -> Text
-insertClauses clauses vars conds cconds = T.concat . map insertClause $ clauses
+
+
+insertClauses :: [Clause] -> Variables -> Conditions -> CompConditions -> [OutputClause]
+insertClauses clauses vars conds cconds = concat $ mapMaybe insertClause clauses
   where
-    insertClause :: Clause -> Text
-    insertClause (DefClause pieces) = replaceVars pieces
+    insertClause :: Clause -> Maybe [OutputClause]
+    insertClause (DefClause pieces) = Just $ replaceVars pieces
     insertClause (CondClause cond pieces) = if evalCond cond
-                                            then replaceVars pieces
-                                            else ""
+                                            then Just $ replaceVars pieces
+                                            else Nothing
+
     evalCond cc = if ccNot cc
                   then evalCond' cc
                   else not $ evalCond' cc
@@ -82,13 +88,13 @@ insertClauses clauses vars conds cconds = T.concat . map insertClause $ clauses
         where compCond :: Int -> Bool
               compCond attrVal = attrVal `compare` value == comp
 
-    replaceVars pieces = T.concat $ map replaceVar pieces
+    replaceVars :: [Text] -> [OutputClause]
+    replaceVars = map replaceVar
 
-    replaceVar :: Text -> Text
+    replaceVar :: Text -> OutputClause
     replaceVar t
-        | "$$" `T.isPrefixOf` t = maybe t id $ M.lookup (T.drop 2 t) vars
-        | otherwise           = t
-
+        | "$$" `T.isPrefixOf` t = maybe (OCString t) id $ M.lookup (T.drop 2 t) vars
+        | otherwise = OCString t
 
 chooseM :: Functor m => m Bool -> a -> a -> m a
 chooseM cond x y = cond <$$> \c -> if c then x else y
@@ -104,8 +110,8 @@ localS mod action = do
     put before
     return a
 
-result :: (AstNode a) => a -> Text -> OutputClause
-result node content = OCNode $ OutputNode (name node) [(OCString content)] False (Area Nothing Nothing)
+
+result node translation = return . OCNode $ OutputNode (name node) translation False (Area Nothing Nothing)
 
 on2Text (OutputNode _ ((OCString t):_) _ _) = t
 oc2Text (OCNode x) = on2Text x
@@ -114,11 +120,12 @@ instance AstNode Program where
     name = const "program"
     translate node = do
         clauses <- getClauses "program" 
-        contents <- T.concat <$> (mapM (fmap oc2Text . translate) $ pEntries node)
+        contents <- OCNodes <$> (mapM (fmap ocNode . translate) $ pEntries node)
         let vars = M.fromList [("contents", contents)]
-        let conds = []
-        let cconds = M.empty
-        return . result node $ insertClauses clauses vars conds cconds
+            conds = []
+            cconds = M.empty
+            translation = insertClauses clauses vars conds cconds
+        return . OCNode $ OutputNode (name node) translation False (Area Nothing Nothing)
 
 instance AstNode ProgramEntry where
     name (PEStm s) = name s
@@ -134,32 +141,34 @@ instance AstNode Expression where
     translate node@(BinOp op lexpr rexpr) = do
         clauses <- getClauses "BinaryExpr"
         sOp <- iOpSym op
-        tOp <- oc2Text <$> translate op
+        tOp <- translate op
         lOp <- iOpLong op
-        left <- subexpr $ oc2Text <$> translate lexpr
-        right <- subexpr $ oc2Text <$> translate rexpr
+        left <- subexpr $ translate lexpr
+        right <- subexpr $ translate rexpr
 
-        parens <- chooseL sInSubExpr (bracket '(' ')') id
+        parens <- chooseL sInSubExpr (bracket' '(' ')') id
         let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
-        let conds = []
-        let cconds = M.empty
-
-        return . result node . parens $ insertClauses clauses vars conds cconds
+            conds = []
+            cconds = M.empty
+            translation = parens $ insertClauses clauses vars conds cconds
+        result node translation
+            
       where
         subexpr = localS (sInSubExpr .~ True)
+
     translate node@(IntLit val) = do
         clauses <- getClauses "IntLit"
-        let vars = M.fromList [("value", T.pack $ show val)]
-        return . result node $ insertClauses clauses vars [] M.empty
+        let vars = M.fromList [("value", OCString . T.pack $ show val)]
+        result node $ insertClauses clauses vars [] M.empty
 
-iOpSym = const $ return ""
+iOpSym = const $ return undefined
 iOpLong = const $ return undefined
 
 instance AstNode InfixOp where
     translate node = do
         node_ <- eFromJust $ M.lookup node translations
         clauses <- getClauses node_
-        return . result node $ insertClauses clauses M.empty [] M.empty
+        result node $ insertClauses clauses M.empty [] M.empty
       where
         translations = M.fromList [(Plus, "add"), (Minus, "subtract"),
             (Mult, "multiply"), (Div, "divide"), (Mod, "modulo"),

@@ -12,7 +12,8 @@ data OutputNode = OutputNode { _oNode :: Text
                              , _loc :: Area }
 
 data OutputClause = OCString Text
-                  | OCNode OutputNode
+                  | OCNode { ocNode :: OutputNode }
+                  | OCNodes [OutputNode]
                   | OCAnnot Annotation
 
 data Annotation = NoAnnotation
