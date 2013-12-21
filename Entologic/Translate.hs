@@ -138,6 +138,8 @@ instance AstNode Statement where
 
 instance AstNode Expression where
     name (BinOp {}) = "BinaryExpr"
+    name (IntLit _) = "IntLit"
+
     translate node@(BinOp op lexpr rexpr) = do
         clauses <- getClauses "BinaryExpr"
         sOp <- iOpSym op
