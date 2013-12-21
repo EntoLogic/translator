@@ -2,10 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Entologic.Ast
-import Entologic.JsonAst
-import Entologic.JsonPhrase
+import Entologic.Ast.Json
+import Entologic.Phrase.Json
 import Entologic.Translate
-import Entologic.JsonOutput
+import Entologic.Output.Json
 import Text.Show.Pretty
 import Data.Aeson
 import Data.ByteString.Lazy.Char8 as L

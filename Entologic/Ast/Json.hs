@@ -1,7 +1,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Entologic.JsonAst where
+module Entologic.Ast.Json where
 
 import Data.Aeson
 import Data.Aeson.Types

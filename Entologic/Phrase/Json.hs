@@ -1,7 +1,7 @@
 
 {-# LANGUAGE OverloadedStrings, FlexibleInstances #-}
 
-module Entologic.JsonPhrase where
+module Entologic.Phrase.Json where
 
 import Entologic.Phrase
 import Data.Aeson

@@ -1,7 +1,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Entologic.JsonOutput where
+module Entologic.Output.Json where
 
 import Entologic.Output
 import Data.Aeson
