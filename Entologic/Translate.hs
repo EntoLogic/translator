@@ -16,6 +16,7 @@ import Control.Monad.Error.Class
 import Entologic.Ast
 import Entologic.Phrase
 import Entologic.Output
+import Entologic.Error
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Class
@@ -51,13 +52,6 @@ phraseClauses pl sl = langPhrase pl . sLangPhrase sl . spClauses
 nodeClause :: Text -> PLang -> SLang -> Fold Phrases [Clause]
 nodeClause node pl sl = (at node . _Just) . phraseClauses pl sl
 
-eFromJust :: Maybe a -> TL a
-eFromJust (Just a) = return a
-eFromJust Nothing = throwError noMsg
-
-errFromJust :: String -> Maybe a -> TL a
-errFromJust _ (Just a) = return a
-errFromJust err Nothing = throwError err
 
 getClauses :: Text -> TL [Clause]
 getClauses node = do
@@ -71,7 +65,8 @@ type CompConditions = M.Map Text Int
 
 
 
-insertClauses :: [Clause] -> Variables -> Conditions -> CompConditions -> [OutputClause]
+insertClauses :: [Clause] -> Variables -> Conditions -> CompConditions
+                          -> [OutputClause]
 insertClauses clauses vars conds cconds = concat $ mapMaybe insertClause clauses
   where
     insertClause :: Clause -> Maybe [OutputClause]
@@ -111,7 +106,8 @@ localS mod action = do
     return a
 
 
-result node translation = return . OCNode $ OutputNode (name node) translation False (Area Nothing Nothing)
+result node translation = return . OCNode $ OutputNode (name node) translation
+                            False (Area Nothing Nothing)
 
 on2Text (OutputNode _ ((OCString t):_) _ _) = t
 oc2Text (OCNode x) = on2Text x

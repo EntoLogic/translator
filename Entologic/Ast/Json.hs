@@ -13,14 +13,12 @@ import qualified Data.ByteString.Lazy as L
 
 import Entologic.Ast
 
-data UAst = UAst {uMeta :: AstMeta, uProg :: Program} deriving Show
 
 
-readAst :: FilePath -> IO UAst
-readAst path = do
+readAstFile :: FilePath -> IO UAst
+readAstFile path = do
     json <- L.readFile path
     either (return . error) return $ eitherDecode json
-
 
 instance FromJSON UAst where
     parseJSON (Object map) = UAst <$> map .: "Meta"

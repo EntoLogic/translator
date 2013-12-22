@@ -12,7 +12,7 @@ import Data.ByteString.Lazy.Char8 as L
 
 main = do
     phrases <- readPhrases "phrase.json"
-    ast <- readAst "example.json"
+    ast <- readAstFile "example.json"
     x <- runTL (TLInfo phrases "ruby" "en") (TLState False) (translate . (!!0) . pEntries $ uProg ast)
     case x of
         (Right y) -> L.putStrLn . encode $ y

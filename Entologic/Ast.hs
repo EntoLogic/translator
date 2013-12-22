@@ -62,6 +62,7 @@ instance MonadError TLError TL where
 runTL :: TLInfo -> TLState -> TL a -> IO (Either TLError a)
 runTL info s tl = (flip evalStateT s) . (flip runReaderT info) . runErrorT . unTL $ tl
 
+data UAst = UAst {uMeta :: AstMeta, uProg :: Program} deriving Show
 
 data AstMeta = AstMeta { mPLang :: PLang, mSLang :: SLang }
                deriving (Show)

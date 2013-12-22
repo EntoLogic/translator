@@ -57,6 +57,7 @@ sortPhrases = foldM sortPhrase M.empty
                   Nothing -> M.insert slang [phrase] pMap
                   Just nlPhrases -> M.insert slang (phrase:nlPhrases) pMap
 
+topVotedNodes :: Map Text (Map Text (Map Text [Document]))
 topVotedNodes = fmap.fmap.fmap $ maximumBy cmpVotes
   where
     cmpVotes d1 d2 = compare (votes d1) (votes d2)
