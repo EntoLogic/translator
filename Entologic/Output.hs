@@ -6,6 +6,8 @@ module Entologic.Output where
 import Data.Text
 import Control.Lens.TH
 
+import Entologic.Base
+
 data OutputNode = OutputNode { _oNode :: Text
                              , _oClauses :: [OutputClause]
                              , _oIndent :: Bool
@@ -20,12 +22,6 @@ data OutputClause = OCString Text
 
 data Annotation = NoAnnotation
                   deriving (Eq, Ord, Show)
-
-data Area = Area { _start :: Maybe Location, _end :: Maybe Location }
-            deriving (Eq, Ord, Show)
-
-data Location = Location { _line :: Int, _col :: Int }
-                deriving (Eq, Ord, Show)
 
 $(makeLenses ''OutputNode)
 $(makeLenses ''Area)

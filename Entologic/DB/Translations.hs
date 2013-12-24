@@ -43,7 +43,9 @@ dbAccess phrases = do
     toTranslate <- nextN 10 =<< DB.find (select ["output_tree" =: [DB.Null]] "")
                                            {sort = ["updatedAt" =: (1 :: Int)]}
     mapM (lift . runTranslation) toTranslate
-    return ()
+    time <- getCurrentTime
+    modify
+
   where
     runTranslation :: Document -> ErrorT String IO L.ByteString
     runTranslation doc = do

@@ -2,24 +2,31 @@
 {-# LANGUAGE OverloadedStrings,
              ExtendedDefaultRules,
              GeneralizedNewtypeDeriving,
-             RankNTypes #-}
+             RankNTypes,
+             TypeSynonymInstances,
+             FlexibleInstances,
+             OverlappingInstances,
+             UndecidableInstances#-}
 
 module Entologic.Translate where
 
 import qualified Data.Map as M
-import Control.Applicative ((<$>))
 import qualified Data.Text as T
 import Data.Text(Text(..))
 import Data.Maybe (fromJust, mapMaybe)
-import Control.Monad.Error.Class
 
+import Entologic.Base
 import Entologic.Ast
 import Entologic.Phrase
 import Entologic.Output
 import Entologic.Error
+
+import Control.Applicative ((<$>), (<*>))
 import Control.Lens
 import Control.Monad.Reader
 import Control.Monad.State.Class
+import Control.Monad.Error.Class
+import Control.Category ((<<<), (>>>))
 
 bracket x y = T.cons x . flip T.snoc y
 
@@ -30,72 +37,16 @@ bracket' x y = cons (OCString $ T.pack [x]) . flip snoc (OCString $ T.pack [y])
 (<$$>) = flip (<$>)
 infixl 4 <$$>
 
-langPhrase :: PLang -> Getter Phrase PPhrase
-langPhrase lang = to $ _langPhrase lang
 
-_langPhrase :: PLang -> Phrase -> PPhrase
-_langPhrase lang phrase = case M.lookup lang $ phrase ^. phLangs of
-                           Nothing -> phrase ^. phDefault
-                           Just lp -> lp
-
-sLangPhrase :: SLang -> Getter PPhrase SPhrase
-sLangPhrase lang = to $ _sLangPhrase lang
-
-_sLangPhrase :: SLang -> PPhrase -> SPhrase
-_sLangPhrase nLang pphrase = case M.lookup nLang $ pphrase ^. pSLangs of
-                             Nothing -> pphrase ^. pSEnglish
-                             Just val -> val
-
-phraseClauses :: PLang -> SLang -> Getter Phrase [Clause]
-phraseClauses pl sl = langPhrase pl . sLangPhrase sl . spClauses
-
-nodeClause :: Text -> PLang -> SLang -> Fold Phrases [Clause]
-nodeClause node pl sl = (at node . _Just) . phraseClauses pl sl
-
-
-getClauses :: Text -> TL [Clause]
-getClauses node = do
-    (TLInfo phrases pl sl) <- ask
-    errFromJust ("clauses for " ++ T.unpack node) $ phrases ^? nodeClause node pl sl
-    
-
-type Variables = M.Map Text OutputClause
-type Conditions = [Text]
-type CompConditions = M.Map Text Int
-
-
-
-insertClauses :: [Clause] -> Variables -> Conditions -> CompConditions
-                          -> [OutputClause]
-insertClauses clauses vars conds cconds = concat $ mapMaybe insertClause clauses
-  where
-    insertClause :: Clause -> Maybe [OutputClause]
-    insertClause (DefClause pieces) = Just $ replaceVars pieces
-    insertClause (CondClause cond pieces) = if evalCond cond
-                                            then Just $ replaceVars pieces
-                                            else Nothing
-
-    evalCond cc = if ccNot cc
-                  then evalCond' cc
-                  else not $ evalCond' cc
-    evalCond' (Present _ attr) = attr `elem` conds
-    evalCond' (Comp _ comp attr value) = maybe False compCond $ M.lookup attr cconds
-        where compCond :: Int -> Bool
-              compCond attrVal = attrVal `compare` value == comp
-
-    replaceVars :: [Text] -> [OutputClause]
-    replaceVars = map replaceVar
-
-    replaceVar :: Text -> OutputClause
-    replaceVar t
-        | "$$" `T.isPrefixOf` t = maybe (OCString t) id $ M.lookup (T.drop 2 t) vars
-        | otherwise = OCString t
 
 chooseM :: Functor m => m Bool -> a -> a -> m a
 chooseM cond x y = cond <$$> \c -> if c then x else y
 
 chooseL :: (MonadState s m, Functor m) => Getter s Bool -> a -> a -> m a
 chooseL getter = chooseM (use getter)
+
+choose :: Bool -> a -> a -> a
+choose cond x y = if cond then x else y
 
 localS :: MonadState s m => (s -> s) -> m a -> m a
 localS mod action = do
@@ -112,31 +63,96 @@ result node translation = return . OCNode $ OutputNode (name node) translation
 on2Text (OutputNode _ ((OCString t):_) _ _) = t
 oc2Text (OCNode x) = on2Text x
 
+instance Variable Bool where
+    present = id
+    comparison = fromEnum
+    inPhrase = OCString . T.pack . show
+
+instance Variable Int where
+    present = (>0)
+    comparison = id
+    inPhrase = OCString . T.pack . show
+
+{-
+class ShowOrVariable a where
+     showOrInPhrase :: a -> TL String
+
+instance Show a => ShowOrVariable a where
+    showOrInPhrase = return . show
+
+instance Variable a => ShowOrVariable a where
+    showOrInPhrase = inPhrase
+-}
+
+{-
+instance Variable a => Variable [a] where
+    present = (>0) . length
+    comparison = length
+    inPhrase list = fmap OCString (listify =<< mapM inPhrase list)
+-}
+
+{-
+instance Show a => Variable [a] where
+    present = (>0) . length
+    comparison = length
+    inPhrase = fmap OCString . listify . map show
+-}
+
+instance Variable String where
+    present = (>0) . length
+    comparison = length
+    inPhrase = OCString . T.pack
+
+instance Variable Text where
+    present = (>0) . T.length
+    comparison = T.length
+    inPhrase = OCString
+
+{-
+instance AstNode a => Variable a where
+    present = const True
+    comparison = const 1
+    inPhrase = translate
+-}
+
+initLast :: [a] -> (Maybe a, [a])
+initLast [x] = (Just x, [])
+initLast (x:xs) = (x:) <$> initLast xs
+initLast [] = (Nothing, [])
+
+listify :: [Text] -> TL Text
+listify xs = let (last', init) = initLast xs
+             in case last' of
+                Nothing -> return ""
+                Just last ->
+                  return $ (T.intercalate ", " init) `T.append` (" and " `T.append` last)
+
 instance AstNode Program where
     name = const "program"
-    translate node = do
+    translate (node, area) = do
         clauses <- getClauses "program" 
         contents <- OCNodes <$> (mapM (fmap ocNode . translate) $ pEntries node)
         let vars = M.fromList [("contents", contents)]
             conds = []
             cconds = M.empty
             translation = insertClauses clauses vars conds cconds
-        return . OCNode $ OutputNode (name node) translation False (Area Nothing Nothing)
+        return . OCNode $ OutputNode (name node) translation False
+                                     (Area Nothing Nothing)
 
 instance AstNode ProgramEntry where
     name (PEStm s) = name s
-    translate (PEStm s) = translate s
+    translate (PEStm s, area) = translate (s, area)
     -- TODO: Other ProgramEntry types
 
 instance AstNode Statement where
-    translate (StmExpr e) = translate e
+    translate (StmExpr e, area) = translate (e, area)
     -- TODO: Other Statement types
 
 instance AstNode Expression where
     name (BinOp {}) = "BinaryExpr"
     name (IntLit _) = "IntLit"
 
-    translate node@(BinOp op lexpr rexpr) = do
+    translate (node@(BinOp op lexpr rexpr), area) = do
         clauses <- getClauses "BinaryExpr"
         sOp <- iOpSym op
         tOp <- translate op
@@ -145,7 +161,8 @@ instance AstNode Expression where
         right <- subexpr $ translate rexpr
 
         parens <- chooseL sInSubExpr (bracket' '(' ')') id
-        let vars = M.fromList [("opSymbol", sOp), ("opText", tOp), ("opTextLong", lOp), ("left", left), ("right", right)]
+        let vars = M.fromList [("opSymbol", sOp), ("opText", tOp)
+                     , ("opTextLong", lOp), ("left", left), ("right", right)]
             conds = []
             cconds = M.empty
             translation = parens $ insertClauses clauses vars conds cconds
@@ -154,23 +171,57 @@ instance AstNode Expression where
       where
         subexpr = localS (sInSubExpr .~ True)
 
-    translate node@(IntLit val) = do
+    translate (node@(IntLit val), area) = do
         clauses <- getClauses "IntLit"
         let vars = M.fromList [("value", OCString . T.pack $ show val)]
         result node $ insertClauses clauses vars [] M.empty
+
+    translate (anyNode, area) = do
+        clauses <- getClauses $ name anyNode
+        parens <- chooseM needsParens (bracket' '(' ')') id
+        let runSubexpr = localS (sInSubExpr .~ True <<<
+                            sPrevExprType .~ name anyNode) :: TL a -> TL a
+        translateExpr anyNode area clauses parens runSubexpr
+      where
+        needsParens = (&&) <$> use sInSubExpr <*> ((name anyNode ==) <$>
+                                                    use sPrevExprType)
+
+translateExpr :: Expression -> Area -> [Clause] -> ([OutputClause] -> [OutputClause]) -> (forall a. TL a -> TL a)
+                            -> TL OutputClause
+translateExpr node@(BinOp op lexpr rexpr) area clauses parens runSubexpr = do
+    tOp <- translate op
+    left <- runSubexpr $ translate lexpr
+    right <- runSubexpr $ translate rexpr
+    let vars = M.fromList [("operation", tOp)
+                 , ("left", left), ("right", right)]
+        conds = []
+        cconds = M.empty
+        translation = parens $ insertClauses clauses vars conds cconds
+    result node translation
+    
 
 iOpSym = const $ return undefined
 iOpLong = const $ return undefined
 
 instance AstNode InfixOp where
-    translate node = do
+    translate (node, area) = do
         node_ <- eFromJust $ M.lookup node translations
         clauses <- getClauses node_
         result node $ insertClauses clauses M.empty [] M.empty
       where
-        translations = M.fromList [(Plus, "add"), (Minus, "subtract"),
-            (Mult, "multiply"), (Div, "divide"), (Mod, "modulo"),
-            (LOr, "logicalOr"), (LAnd, "logicalAnd"), (BOr, "bitOr"), (BAnd, "bitAnd"),
-            (Xor, "xor"), (RShift, "rShift"),
-            (LShift, "lShift"), (RUShift, "ruShift")]
+        translations = M.fromList [(Plus, "add"), (Minus, "subtract")
+            , (Mult, "multiply"), (Div, "divide"), (Mod, "modulo")
+            , (LOr, "logicalOr"), (LAnd, "logicalAnd"), (BOr, "bitOr")
+            , (BAnd, "bitAnd"), (Xor, "xor"), (RShift, "rShift")
+            , (LShift, "lShift"), (RUShift, "ruShift")]
 
+class HasPrecedence a where
+    precedence :: a -> Int
+
+instance HasPrecedence InfixOp where
+    precedence op = fromJust $ lookup op precedences
+      where precedences =
+              [(Mult, 4), (Div, 4), (Mod, 4), (Plus, 5), (Minus, 5), (RShift, 6)
+              , (RUShift, 6), (LShift, 6), (Gt, 7), (Lt, 7), (GtEq, 7)
+              , (LtEq, 7), (Equal, 8), (NEqual, 8), (BAnd, 9), (Xor, 10)
+              , (BOr, 11), (LAnd, 12), (LOr, 13)]
