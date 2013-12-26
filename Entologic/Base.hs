@@ -80,7 +80,8 @@ type WebTranslator = IO
 
 type TLError = String
 
-newtype TL a = TL { unTL :: (ErrorT TLError (ReaderT TLInfo (StateT TLState WebTranslator)) a) }
+newtype TL a = TL { unTL :: (ErrorT TLError (ReaderT TLInfo
+                                (StateT TLState WebTranslator)) a) }
                deriving (Functor, Applicative, Monad)
 
 instance MonadState TLState TL where
@@ -96,7 +97,8 @@ instance MonadError TLError TL where
     catchError (TL m) f = TL $ catchError m (unTL . f)
 
 runTL :: TLInfo -> TLState -> TL a -> IO (Either TLError a)
-runTL info s tl = (flip evalStateT s) . (flip runReaderT info) . runErrorT . unTL $ tl
+runTL info s tl = (flip evalStateT s) . (flip runReaderT info) . runErrorT .
+                     unTL $ tl
 
 
 data Area = Area { _start :: Maybe Location, _end :: Maybe Location }
@@ -105,4 +107,8 @@ data Area = Area { _start :: Maybe Location, _end :: Maybe Location }
 data Location = Location { _line :: Int, _col :: Int }
                 deriving (Eq, Ord, Show)
 
-
+tupleM :: Monad m => (m a, m b) -> m (a, b)
+tupleM (ma, mb) = do
+    a <- ma
+    b <- mb
+    return (a, b)

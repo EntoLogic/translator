@@ -4,7 +4,31 @@
              Rank2Types,
              ExistentialQuantification #-}
 
-module Entologic.Phrase where
+module Entologic.Phrase
+    ( Phrase(..)
+    , phNode
+    , phDefault
+    , phLangs
+    , PPhrase(..)
+    , ppLang
+    , pSEnglish
+    , pSLangs
+    , SPhrase(..)
+    , spLang
+    , spClauses
+    , Clause(..)
+    , ClauseCond(..)
+    , Phrases
+    , PLang
+    , SLang
+    , SPhrases
+    , PPhrases
+    , Variable(..)
+    , AnyVariable(..)
+    , insertClauses
+    , insertClauses'
+    , getClauses
+    ) where
 
 import qualified Data.Text as T
 import Data.Text (Text(..))

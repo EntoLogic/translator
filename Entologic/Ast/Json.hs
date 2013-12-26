@@ -1,5 +1,6 @@
 
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings,
+             FlexibleInstances#-}
 
 module Entologic.Ast.Json where
 
@@ -7,11 +8,16 @@ import Data.Aeson
 import Data.Aeson.Types
 import qualified Data.Map as M
 import qualified Data.Vector as V
-import Control.Applicative((<$>), (<*>), pure)
+import Data.Vector ((!?))
 import Data.Text
 import qualified Data.ByteString.Lazy as L
+import Data.Attoparsec.Number (Number(..))
+
+import Control.Applicative ((<$>), (<*>), pure)
+import Control.Monad
 
 import Entologic.Ast
+import Entologic.Base
 
 
 
@@ -19,6 +25,19 @@ readAstFile :: FilePath -> IO UAst
 readAstFile path = do
     json <- L.readFile path
     either (return . error) return $ eitherDecode json
+
+area :: Object -> Parser Area
+area obj = area' =<< obj .:? "location"
+
+area' :: Maybe Object -> Parser Area
+area' (Nothing) = pure $ Area Nothing Nothing
+area' (Just obj) = Area <$> (join <$> obj .:? "start") <*> (join <$> obj .:? "end")
+
+instance FromJSON (Maybe Location) where
+    parseJSON (Array arr) = return $ Location <$> (toInt <$> arr !? 0) <*> (toInt <$> arr !? 1)
+      where
+        toInt (Number (I i)) = fromIntegral i
+    parseJSON _ = return Nothing
 
 instance FromJSON UAst where
     parseJSON (Object map) = UAst <$> map .: "Meta"
@@ -54,8 +73,8 @@ instance FromJSON Type where
     parseJSON (String s) = return $ StringT s
 
 instance FromJSON ParamDecl where
-    parseJSON (String s) = return $ ParamDecl s Nothing
-    parseJSON (Object obj) = ParamDecl <$> obj .: "Name"
+--    parseJSON (String s) = return $ ParamDecl s Nothing
+    parseJSON (Object obj) = ParamDecl <$> tupleM (obj .: "Name", area obj)
                                        <*> obj .:? "Type"
 
 instance FromJSON Body where
@@ -82,8 +101,18 @@ instance FromJSON Expression where
           Just f -> f obj
           Nothing -> fail $ "Invalid Expression type: " ++ unpack typ
       where
+        parsers :: [(Text, Object -> Parser Expression)]
         parsers = [("Assignment", assignment), ("OpAssign", opAssign), ("BinaryExpr", binExpr), ("IntLit", intLit),
                    ("PrefixOp", preOp), ("PostfixOp", postOp)]
+
+instance FromJSON a => FromJSON (AN a) where
+    parseJSON obj@(Object map) = tupleM (parseJSON obj, area map)
+
+an :: (Value -> Parser a) -> Value -> Parser (AN a)
+an f obj@(Object map) = tupleM (f obj, area map)
+
+an' :: (Object -> Parser a) -> Object -> Parser (AN a)
+an' f obj = tupleM (f obj, area obj)
 
 assignment obj = Assign <$> obj .: "Variable"
                         <*> obj .: "Value"
@@ -96,6 +125,7 @@ binExpr obj = BinOp <$> obj .: "op"
                     <*> obj .: "left"
                     <*> obj .: "right"
 
+preOrPostOp :: FromJSON a => (AN a -> Expression' -> Expression) -> Object -> Parser Expression
 preOrPostOp const obj = const <$> obj .: "Op"
                               <*> obj .: "Arg"
 

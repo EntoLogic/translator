@@ -5,6 +5,7 @@ module Entologic.DB.Translations where
 
 import Entologic.Translate
 import Entologic.Error
+import Entologic.Base
 import Entologic.Ast
 import Entologic.Ast.Json
 import Entologic.Phrase
@@ -28,23 +29,27 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.Map as M
 import Data.Text as T
+import Data.Time.Clock
 
 
-main' :: ErrorT String IO ()
-main' = do
-    (dbHost:args) <- liftIO getArgs
-    pipe <- liftIO (runIOE . connect $ host dbHost)
-    phrases <- liftIO $ readPhrases "phrase.json"
-    access pipe master "entologic_dev" (dbAccess phrases)
-    liftIO $ close pipe
+dbInteract :: ErrorT String IO ()
+dbInteract = do
+    args <- liftIO getArgs
+    case args of
+      [] -> throwError "give DB host as first argument"
+      (dbHost:rest) -> do
+        pipe <- liftIO (runIOE . connect $ host dbHost)
+        phrases <- liftIO $ readPhrases "phrase.json"
+        access pipe master "entologic_dev" (dbAccess phrases)
+        liftIO $ close pipe
 
 dbAccess :: Phrases -> Action (ErrorT String IO) ()
 dbAccess phrases = do
     toTranslate <- nextN 10 =<< DB.find (select ["output_tree" =: [DB.Null]] "")
                                            {sort = ["updatedAt" =: (1 :: Int)]}
     mapM (lift . runTranslation) toTranslate
-    time <- getCurrentTime
-    modify
+    time <- liftIO getCurrentTime
+    return ()
 
   where
     runTranslation :: Document -> ErrorT String IO L.ByteString
@@ -52,8 +57,8 @@ dbAccess phrases = do
         pLang <- DB.lookup "pLang" doc
         sLang <- DB.lookup "nLang" doc
         ast <- parseCode pLang =<< L8.pack <$> DB.lookup "plainCodeInput" doc
-        output <- liftIO $ runTL (TLInfo phrases pLang sLang) (TLState False)
-                      (translate $ uProg ast)
+        output <- liftIO $ runTL (TLInfo phrases pLang sLang) (TLState False "")
+                      (translate  (uProg ast, Area Nothing Nothing))
         (OCNode node) <- eFromRight output
         return $ encode node
 

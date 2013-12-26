@@ -57,8 +57,8 @@ localS mod action = do
     return a
 
 
-result node translation = return . OCNode $ OutputNode (name node) translation
-                            False (Area Nothing Nothing)
+result node area translation = return . OCNode $ OutputNode (name node) translation
+                            False area
 
 on2Text (OutputNode _ ((OCString t):_) _ _) = t
 oc2Text (OCNode x) = on2Text x
@@ -108,6 +108,17 @@ instance Variable Text where
     comparison = T.length
     inPhrase = OCString
 
+instance Variable OutputClause where 
+    inPhrase = id
+
+    present (OCString x) = present x
+    present (OCNodes xs) = length xs > 0
+    present _ = True
+
+    comparison (OCString x) = comparison x
+    comparison (OCNodes xs) = length xs
+    comparison _ = 1
+
 {-
 instance AstNode a => Variable a where
     present = const True
@@ -129,7 +140,7 @@ listify xs = let (last', init) = initLast xs
 
 instance AstNode Program where
     name = const "program"
-    translate (node, area) = do
+    {-translate (node, area) = do
         clauses <- getClauses "program" 
         contents <- OCNodes <$> (mapM (fmap ocNode . translate) $ pEntries node)
         let vars = M.fromList [("contents", contents)]
@@ -137,7 +148,14 @@ instance AstNode Program where
             cconds = M.empty
             translation = insertClauses clauses vars conds cconds
         return . OCNode $ OutputNode (name node) translation False
-                                     (Area Nothing Nothing)
+                                     (Area Nothing Nothing)-}
+    translate (node, area) = do
+        clauses <- getClauses "program" 
+        contents <- OCNodes <$> (mapM (fmap ocNode . translate) $ pEntries node)
+        let vars = M.fromList [("contents", AV contents)]
+            translation = insertClauses' clauses vars
+        return . OCNode $ OutputNode (name node) translation False
+                                     area
 
 instance AstNode ProgramEntry where
     name (PEStm s) = name s
@@ -152,6 +170,7 @@ instance AstNode Expression where
     name (BinOp {}) = "BinaryExpr"
     name (IntLit _) = "IntLit"
 
+{-
     translate (node@(BinOp op lexpr rexpr), area) = do
         clauses <- getClauses "BinaryExpr"
         sOp <- iOpSym op
@@ -170,11 +189,12 @@ instance AstNode Expression where
             
       where
         subexpr = localS (sInSubExpr .~ True)
+-}
 
     translate (node@(IntLit val), area) = do
         clauses <- getClauses "IntLit"
         let vars = M.fromList [("value", OCString . T.pack $ show val)]
-        result node $ insertClauses clauses vars [] M.empty
+        result node area $ insertClauses clauses vars [] M.empty
 
     translate (anyNode, area) = do
         clauses <- getClauses $ name anyNode
@@ -192,22 +212,18 @@ translateExpr node@(BinOp op lexpr rexpr) area clauses parens runSubexpr = do
     tOp <- translate op
     left <- runSubexpr $ translate lexpr
     right <- runSubexpr $ translate rexpr
-    let vars = M.fromList [("operation", tOp)
-                 , ("left", left), ("right", right)]
-        conds = []
-        cconds = M.empty
-        translation = parens $ insertClauses clauses vars conds cconds
-    result node translation
+    let vars = M.fromList [("operation", AV tOp)
+                 , ("left", AV left), ("right", AV right)]
+        translation = parens $ insertClauses' clauses vars
+    result node area translation
     
 
-iOpSym = const $ return undefined
-iOpLong = const $ return undefined
 
 instance AstNode InfixOp where
     translate (node, area) = do
         node_ <- eFromJust $ M.lookup node translations
         clauses <- getClauses node_
-        result node $ insertClauses clauses M.empty [] M.empty
+        result node area $ insertClauses' clauses M.empty
       where
         translations = M.fromList [(Plus, "add"), (Minus, "subtract")
             , (Mult, "multiply"), (Div, "divide"), (Mod, "modulo")

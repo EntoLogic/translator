@@ -1,7 +1,17 @@
 
 {-# LANGUAGE TemplateHaskell #-}
 
-module Entologic.Output where
+module Entologic.Output
+    ( OutputNode(..)
+    , OutputClause(..)
+    , Annotation(..)
+    , Area(..)
+    , Location(..)
+    , oNode
+    , oClauses
+    , oIndent
+    , loc
+    ) where
 
 import Data.Text
 import Control.Lens.TH
