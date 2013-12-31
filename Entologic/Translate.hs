@@ -139,7 +139,7 @@ listify xs = let (last', init) = initLast xs
                   return $ (T.intercalate ", " init) `T.append` (" and " `T.append` last)
 
 instance AstNode Program where
-    name = const "program"
+    name = const "Program"
     {-translate (node, area) = do
         clauses <- getClauses "program" 
         contents <- OCNodes <$> (mapM (fmap ocNode . translate) $ pEntries node)
@@ -150,10 +150,10 @@ instance AstNode Program where
         return . OCNode $ OutputNode (name node) translation False
                                      (Area Nothing Nothing)-}
     translate (node, area) = do
-        clauses <- getClauses "program" 
+        clauses <- getClauses "Program" 
         contents <- OCNodes <$> (mapM (fmap ocNode . translate) $ pEntries node)
         let vars = M.fromList [("contents", AV contents)]
-            translation = insertClauses' clauses vars
+            translation = insertClauses clauses vars
         return . OCNode $ OutputNode (name node) translation False
                                      area
 
@@ -169,6 +169,7 @@ instance AstNode Statement where
 instance AstNode Expression where
     name (BinOp {}) = "BinaryExpr"
     name (IntLit _) = "IntLit"
+    name (StringLit _) = "StringLit"
 
 {-
     translate (node@(BinOp op lexpr rexpr), area) = do
@@ -192,9 +193,13 @@ instance AstNode Expression where
 -}
 
     translate (node@(IntLit val), area) = do
-        clauses <- getClauses "IntLit"
-        let vars = M.fromList [("value", OCString . T.pack $ show val)]
-        result node area $ insertClauses clauses vars [] M.empty
+        result node area . (:[]) . OCString . T.pack $ show val
+--        let vars = M.fromList [("value", AV $ show val)]
+--        defTransExpr node area vars
+
+    translate (node@(StringLit val), area) = do
+        let vars = M.fromList [("value", AV val)]
+        defTrans node area vars
 
     translate (anyNode, area) = do
         clauses <- getClauses $ name anyNode
@@ -206,30 +211,60 @@ instance AstNode Expression where
         needsParens = (&&) <$> use sInSubExpr <*> ((name anyNode ==) <$>
                                                     use sPrevExprType)
 
-translateExpr :: Expression -> Area -> [Clause] -> ([OutputClause] -> [OutputClause]) -> (forall a. TL a -> TL a)
-                            -> TL OutputClause
+defTrans :: AstNode a => a -> Area -> AnyVariables -> TL OutputClause
+defTrans node area vars = do
+    clauses <- getClauses $ name node
+    result node area $ insertClauses clauses vars
+
+translateExpr :: Expression -> Area -> [Clause] -> ([OutputClause]
+                   -> [OutputClause]) -> (forall a. TL a -> TL a)
+                   -> TL OutputClause
 translateExpr node@(BinOp op lexpr rexpr) area clauses parens runSubexpr = do
     tOp <- translate op
     left <- runSubexpr $ translate lexpr
     right <- runSubexpr $ translate rexpr
     let vars = M.fromList [("operation", AV tOp)
                  , ("left", AV left), ("right", AV right)]
-        translation = parens $ insertClauses' clauses vars
+        translation = parens $ insertClauses clauses vars
     result node area translation
     
+translateExpr node@(Assign varRef expression) area clauses parens runSubexpr = do
+    var <- translate varRef
+    expr <- runSubexpr $ translate expression
+    let vars = M.fromList [("variable", AV var), ("expression", AV expr)]
+        translation = parens $ insertClauses clauses vars
+    result node area translation
+
+translateExpr node@(OpAssign varRef infixOp expression) area clauses parens
+                runSubexpr = do
+    var <- runSubexpr $ translate varRef
+    op <- runSubexpr $ translate infixOp
+    expr <- runSubexpr $ translate expression
+    let vars = M.fromList [("variable", AV var), ("expression", AV expr),
+                           ("op", AV op)]
+        translation = parens $ insertClauses clauses vars
+    result node area translation
 
 
 instance AstNode InfixOp where
-    translate (node, area) = do
-        node_ <- eFromJust $ M.lookup node translations
-        clauses <- getClauses node_
-        result node area $ insertClauses' clauses M.empty
+    name node = fromJust $ M.lookup node names
       where
-        translations = M.fromList [(Plus, "add"), (Minus, "subtract")
+        names = M.fromList [(Plus, "add"), (Minus, "subtract")
             , (Mult, "multiply"), (Div, "divide"), (Mod, "modulo")
             , (LOr, "logicalOr"), (LAnd, "logicalAnd"), (BOr, "bitOr")
             , (BAnd, "bitAnd"), (Xor, "xor"), (RShift, "rShift")
             , (LShift, "lShift"), (RUShift, "ruShift")]
+
+    translate (node, area) = do
+        clauses <- getClauses $ name node
+        result node area $ insertClauses clauses M.empty
+
+instance AstNode VarRef where
+    translate (node@(StringV var), area) = do
+        let vars = M.fromList [("varName", AV var)]
+        defTrans node area vars
+
+    
 
 class HasPrecedence a where
     precedence :: a -> Int

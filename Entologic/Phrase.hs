@@ -25,8 +25,8 @@ module Entologic.Phrase
     , PPhrases
     , Variable(..)
     , AnyVariable(..)
+    , AnyVariables
     , insertClauses
-    , insertClauses'
     , getClauses
     ) where
 
@@ -88,33 +88,6 @@ type CompConditions = M.Map Text Int
 
 
 
-insertClauses :: [Clause] -> Variables -> Conditions -> CompConditions
-                          -> [OutputClause]
-insertClauses clauses vars conds cconds = concat $ mapMaybe insertClause clauses
-  where
-    insertClause :: Clause -> Maybe [OutputClause]
-    insertClause (DefClause pieces) = Just $ replaceVars pieces
-    insertClause (CondClause cond pieces) = if evalCond cond
-                                            then Just $ replaceVars pieces
-                                            else Nothing
-
-    evalCond cc = if ccNot cc
-                  then evalCond' cc
-                  else not $ evalCond' cc
-    evalCond' (Present _ attr) = attr `elem` conds
-    evalCond' (Comp _ comp attr value) = maybe False compCond $
-                                            M.lookup attr cconds
-        where compCond :: Int -> Bool
-              compCond attrVal = attrVal `compare` value == comp
-
-    replaceVars :: [Text] -> [OutputClause]
-    replaceVars = map replaceVar
-
-    replaceVar :: Text -> OutputClause
-    replaceVar t
-        | "$$" `T.isPrefixOf` t = maybe (OCString t) id $
-                                    M.lookup (T.drop 2 t) vars
-        | otherwise = OCString t
 
 data AnyVariable = forall a. Variable a => AV { unAV :: a}
 
@@ -128,8 +101,8 @@ type AnyVariables = M.Map Text AnyVariable
 vars_ :: AnyVariables
 vars_ = undefined
 
-insertClauses' :: [Clause] -> AnyVariables -> [OutputClause]
-insertClauses' clauses vars = concat $ mapMaybe insertClause clauses
+insertClauses :: [Clause] -> AnyVariables -> [OutputClause]
+insertClauses clauses vars = concat $ mapMaybe insertClause clauses
   where
     insertClause :: Clause -> Maybe [OutputClause]
     insertClause (DefClause pieces) = Just $ replaceVars pieces

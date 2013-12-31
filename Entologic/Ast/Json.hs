@@ -44,8 +44,8 @@ instance FromJSON UAst where
                                   <*> map .: "Program"
 
 instance FromJSON AstMeta where
-    parseJSON (Object map) = AstMeta <$> map .: "Language"
-                                     <*> map .: "SpokenLanguage"
+    parseJSON (Object map) = return AstMeta {-<$> map .: "Language"
+                                     <*> map .: "SpokenLanguage" -}
 
 instance FromJSON Program where
     parseJSON (Array v) = Program <$> mapM parseJSON (V.toList v)
@@ -107,6 +107,7 @@ instance FromJSON Expression where
 
 instance FromJSON a => FromJSON (AN a) where
     parseJSON obj@(Object map) = tupleM (parseJSON obj, area map)
+    parseJSON obj = tupleM (parseJSON obj, return $ Area Nothing Nothing)
 
 an :: (Value -> Parser a) -> Value -> Parser (AN a)
 an f obj@(Object map) = tupleM (f obj, area map)

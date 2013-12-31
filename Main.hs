@@ -7,7 +7,7 @@ import Entologic.DB.Translations
 main :: IO ()
 main = do
     main'
-    threadDelay 1000
+    threadDelay 3000000
     main
 
 main' :: IO ()

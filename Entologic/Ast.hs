@@ -32,7 +32,7 @@ import Control.Lens.TH
 
 data UAst = UAst {uMeta :: AstMeta, uProg :: Program} deriving Show
 
-data AstMeta = AstMeta { mPLang :: PLang, mSLang :: SLang }
+data AstMeta = AstMeta --{ mPLang :: PLang, mSLang :: SLang }
                deriving (Show)
 
 class AstNode a where
@@ -155,4 +155,5 @@ data Expression = Assign VarRef' Expression'
                 | StringLit Text
                 | PreOp PrefixOp' Expression'
                 | PostOp PostfixOp' Expression'
+                | InstanceConstruction
                   deriving (Show, Ord, Eq)

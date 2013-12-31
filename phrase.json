@@ -7,7 +7,7 @@
             "clauses": [
                 ["$$left",
                 " ",
-                "$$opText",
+                "$$operation",
                 " ",
                 "$$right"]
             ]
@@ -23,6 +23,19 @@
             "slang": "en",
             "clauses": [
                 ["$$value"]
+            ]
+        },
+        "slangs": {}
+    },
+    "plangs": {}
+},
+{
+    "node": "Program",
+    "default": {
+        "en": {
+            "slang": "en",
+            "clauses": [
+                ["$$contents"]
             ]
         },
         "slangs": {}
