@@ -147,17 +147,23 @@ data PostfixOp = PostInc
                | PostDec
                  deriving (Show, Ord, Eq)
 
+type TernaryOp' = AN TernaryOp
+data TernaryOp = Query
+                 deriving (Show, Ord, Eq)
+
 type Expression' = AN Expression
 data Expression = Assign VarRef' Expression'
                 | OpAssign VarRef' InfixOp' Expression'
                 | BinOp InfixOp' Expression' Expression'
                 | IntLit Integer
                 | StringLit Text
+                | FloatLit Double
                 | PreOp PrefixOp' Expression'
                 | PostOp PostfixOp' Expression'
                 | InstanceConstruction Type' [Expression']
                 | MethodCall Expression' Text' [GenericParam'] [Expression']
                 | FunctionCall Text' [GenericParam'] [Expression']
+                | TernOp TernaryOp' Expression' Expression'
                   deriving (Show, Ord, Eq)
 
 type GenericParam' = AN GenericParam

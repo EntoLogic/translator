@@ -137,26 +137,29 @@ initLast [x] = (Just x, [])
 initLast (x:xs) = (x:) <$> initLast xs
 initLast [] = (Nothing, [])
 
+{-
 listify :: [Text] -> TL Text
 listify xs = let (last', init) = initLast xs
              in case last' of
                 Nothing -> return ""
                 Just last ->
                   return $ (T.intercalate ", " init) `T.append` (" and " `T.append` last)
+-}
 
 listify' :: [OutputClause] -> TL [OutputClause]
 listify' xs = let (last', init) = initLast xs
-             in case last' of
+              in case last' of
                 Nothing -> return []
                 Just last ->
-                  return $ (intersperse (OCString ", ") init) ++ ([(OCString " and ")] ++ [last])
+                  return $ (intersperse (OCString ", ") init) ++
+                                ([(OCString " and ")] ++ [last])
 
 instance AstNode Program where
     name = const "Program"
     translate (node, area) = do
         clauses <- getClauses "Program" 
-        -- content
-        contents <- OCNodes . concat <$> (mapM (fmap (fmap ocNode) . translate) $ pEntries node)
+        contents <- OCNodes . concat <$>
+                        (mapM (fmap (fmap ocNode) . translate) $ pEntries node)
         let vars = M.fromList [("contents", AV contents)]
         defTrans node area vars
 
@@ -171,10 +174,11 @@ instance AstNode Statement where
 
 instance AstNode Expression where
     name (BinOp {}) = "BinaryExpr"
-    name (IntLit _) = "IntLit"
-    name (StringLit _) = "StringLit"
+    name (IntLit {}) = "IntLit"
+    name (StringLit {}) = "StringLit"
     name (PreOp {}) = "PrefixExpr"
     name (PostOp {}) = "PostfixExpr"
+    name (Assign {}) = "Assignment"
 
     translate (node@(Assign varRef expression), area) = do
         let rse = runSubExpr node
@@ -232,6 +236,25 @@ instance AstNode Expression where
                               , ("subexpression", AV subexpr)]
         defTrans node area vars
 
+    translate (node@(MethodCall object method genericParams arguments), area) =
+      do
+        let rse = runSubExpr node
+        obj <- rse $ translate object
+        gParams <- rse $ mapM translate genericParams
+        args <- rse $ mapM translate arguments
+        let vars = M.fromList [("object", AV obj), ("methodName", AV method)
+                    , ("genericParameters", AV gParams), ("arguments", AV args)]
+        defTrans node area vars
+
+    translate (node@(FunctionCall function genericParams arguments), area) = do
+        let rse = runSubExpr node
+        gParams <- rse $ mapM translate genericParams
+        args <- rse $ mapM translate arguments
+        let vars = M.fromList [("functionName", AV function)
+                    , ("genericParameters", AV gParams), ("arguments", AV args)]
+        defTrans node area vars
+
+
 
 instance AstNode VarRef where
     translate (node@(VarAccess var), area) = do
@@ -269,7 +292,8 @@ defTrans node area vars = do
     clauses <- getClauses $ name node
     parens' <- parens node
     case clauses of
-      Just clauses' -> result node area . parens' =<< insertClauses clauses' vars
+      Just clauses' -> result node area . parens' =<<
+                                        insertClauses clauses' vars
       Nothing -> webTranslate =<< local english (translate (node, area))
         
 
@@ -300,4 +324,7 @@ instance AstNode PostfixOp where
 
     translate (node, area) = defTrans node area M.empty
 
+instance AstNode GenericParam where
+    name = const "GenericParameter"
 
+    translate = const $ return []
