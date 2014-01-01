@@ -109,8 +109,8 @@ data Statement = VarDecl { vdType :: Type'
                  deriving (Show, Ord, Eq)
 
 type VarRef' = AN VarRef
-data VarRef = StringV Text
-            | DottedV [Text]
+data VarRef = VarAccess Text
+            | FieldAccess Expression' Text'
               deriving (Show, Ord, Eq)
 
 type InfixOp' = AN InfixOp
@@ -155,5 +155,15 @@ data Expression = Assign VarRef' Expression'
                 | StringLit Text
                 | PreOp PrefixOp' Expression'
                 | PostOp PostfixOp' Expression'
-                | InstanceConstruction
+                | InstanceConstruction Type' [Expression']
+                | MethodCall Expression' Text' [GenericParam'] [Expression']
+                | FunctionCall Text' [GenericParam'] [Expression']
                   deriving (Show, Ord, Eq)
+
+type GenericParam' = AN GenericParam
+data GenericParam = GenericParam
+                    deriving (Show, Ord, Eq)
+type GenericParamDecl' = AN GenericParamDecl
+data GenericParamDecl = GenericParamDecl
+                        deriving (Show, Ord, Eq)
+

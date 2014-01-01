@@ -36,6 +36,7 @@ import qualified Data.Map as M
 import Data.Maybe
 
 import Control.Monad.Reader.Class
+import Control.Monad.Error.Class
 import Control.Lens
 
 import Entologic.Base
@@ -76,10 +77,16 @@ nodeClause :: Text -> PLang -> SLang -> Fold Phrases [Clause]
 nodeClause node pl sl = (at node . _Just) . phraseClauses pl sl
 
 
-getClauses :: Text -> TL [Clause]
+getClauses :: Text -> TL (Maybe [Clause])
 getClauses node = do
     (TLInfo phrases pl sl) <- ask
-    errFromJust ("clauses for " ++ T.unpack node) $ phrases ^? nodeClause node pl sl
+    let clauses = phrases ^? nodeClause node pl sl
+    case clauses of
+      j@(Just x) -> return $ Just x
+      Nothing ->
+        case sl of
+          "en" -> throwError $ "clauses for " ++ T.unpack node
+          _ -> return Nothing
     
 
 type Variables = M.Map Text OutputClause
