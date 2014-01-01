@@ -38,6 +38,7 @@ import Data.Maybe
 import Control.Monad.Reader.Class
 import Control.Monad.Error.Class
 import Control.Lens
+import Control.Applicative ((<$>))
 
 import Entologic.Base
 import Entologic.Output
@@ -51,7 +52,7 @@ class Variable a where
     present :: a -> Bool
     comparison :: a -> Int
 --    inPhrase :: a -> TL OutputClause
-    inPhrase :: a -> OutputClause
+    inPhrase :: a -> TL [OutputClause]
 
 
 langPhrase :: PLang -> Getter Phrase PPhrase
@@ -108,14 +109,17 @@ type AnyVariables = M.Map Text AnyVariable
 vars_ :: AnyVariables
 vars_ = undefined
 
-insertClauses :: [Clause] -> AnyVariables -> [OutputClause]
-insertClauses clauses vars = concat $ mapMaybe insertClause clauses
+mapMaybeM :: (Monad m, Functor m) => (a -> m (Maybe b)) -> [a] -> m [b]
+mapMaybeM f = fmap catMaybes . mapM f
+
+insertClauses :: [Clause] -> AnyVariables -> TL [OutputClause]
+insertClauses clauses vars = concat <$> mapMaybeM insertClause clauses
   where
-    insertClause :: Clause -> Maybe [OutputClause]
-    insertClause (DefClause pieces) = Just $ replaceVars pieces
+    insertClause :: Clause -> TL (Maybe [OutputClause])
+    insertClause (DefClause pieces) = Just <$> replaceVars pieces
     insertClause (CondClause cond pieces) = if evalCond cond
-                                            then Just $ replaceVars pieces
-                                            else Nothing
+                                            then Just <$> replaceVars pieces
+                                            else return Nothing
 
     evalCond :: ClauseCond -> Bool
     evalCond cc = if ccNot cc
@@ -127,11 +131,11 @@ insertClauses clauses vars = concat $ mapMaybe insertClause clauses
         where compCond :: Int -> Bool
               compCond attrVal = attrVal `compare` value == comp
 
-    replaceVars :: [Text] -> [OutputClause]
-    replaceVars = map replaceVar
+    replaceVars :: [Text] -> TL [OutputClause]
+    replaceVars = fmap concat . mapM replaceVar
 
-    replaceVar :: Text -> OutputClause
+    replaceVar :: Text -> TL [OutputClause]
     replaceVar t
-        | "$$" `T.isPrefixOf` t = maybe (OCString t) inPhrase $
+        | "$$" `T.isPrefixOf` t = maybe (return [OCString t]) inPhrase $
                                     M.lookup (T.drop 2 t) vars
-        | otherwise = OCString t
+        | otherwise = return [OCString t]

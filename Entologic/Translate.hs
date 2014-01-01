@@ -15,6 +15,7 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Text(Text(..))
 import Data.Maybe (fromJust, mapMaybe)
+import Data.List (intersperse)
 
 import Entologic.Base
 import Entologic.Ast
@@ -58,7 +59,8 @@ localS mod action = do
     return a
 
 
-result node area translation = return . OCNode $ OutputNode (name node) translation
+result :: AstNode a => a -> Area -> [OutputClause] -> TL [OutputClause]
+result node area translation = return . (:[]) . OCNode $ OutputNode (name node) translation
                             False area
 
 on2Text (OutputNode _ ((OCString t):_) _ _) = t
@@ -67,12 +69,12 @@ oc2Text (OCNode x) = on2Text x
 instance Variable Bool where
     present = id
     comparison = fromEnum
-    inPhrase = OCString . T.pack . show
+    inPhrase = return . (:[]) . OCString . T.pack . show
 
 instance Variable Int where
     present = (>0)
     comparison = id
-    inPhrase = OCString . T.pack . show
+    inPhrase = return . (:[]) . OCString . T.pack . show
 
 {-
 class ShowOrVariable a where
@@ -85,12 +87,10 @@ instance Variable a => ShowOrVariable a where
     showOrInPhrase = inPhrase
 -}
 
-{-
 instance Variable a => Variable [a] where
     present = (>0) . length
     comparison = length
-    inPhrase list = fmap OCString (listify =<< mapM inPhrase list)
--}
+    inPhrase list = (listify' =<< concat <$> mapM inPhrase list)
 
 {-
 instance Show a => Variable [a] where
@@ -102,20 +102,20 @@ instance Show a => Variable [a] where
 instance Variable String where
     present = (>0) . length
     comparison = length
-    inPhrase = OCString . T.pack
+    inPhrase = return . (:[]) . OCString . T.pack
 
 instance Variable Text where
     present = (>0) . T.length
     comparison = T.length
-    inPhrase = OCString
+    inPhrase = return . (:[]) . OCString
 
 instance Variable Text' where
     present (t, _) = present t
     comparison (t, _) = comparison t
-    inPhrase (t, a) = OCNode $ OutputNode "" [OCString t] False a
+    inPhrase (t, a) = return . (:[]) . OCNode $ OutputNode "" [OCString t] False a
 
 instance Variable OutputClause where 
-    inPhrase = id
+    inPhrase = return . (:[])
 
     present (OCString x) = present x
     present (OCNodes xs) = length xs > 0
@@ -144,20 +144,19 @@ listify xs = let (last', init) = initLast xs
                 Just last ->
                   return $ (T.intercalate ", " init) `T.append` (" and " `T.append` last)
 
+listify' :: [OutputClause] -> TL [OutputClause]
+listify' xs = let (last', init) = initLast xs
+             in case last' of
+                Nothing -> return []
+                Just last ->
+                  return $ (intersperse (OCString ", ") init) ++ ([(OCString " and ")] ++ [last])
+
 instance AstNode Program where
     name = const "Program"
-    {-translate (node, area) = do
-        clauses <- getClauses "program" 
-        contents <- OCNodes <$> (mapM (fmap ocNode . translate) $ pEntries node)
-        let vars = M.fromList [("contents", contents)]
-            conds = []
-            cconds = M.empty
-            translation = insertClauses clauses vars conds cconds
-        return . OCNode $ OutputNode (name node) translation False
-                                     (Area Nothing Nothing)-}
     translate (node, area) = do
         clauses <- getClauses "Program" 
-        contents <- OCNodes <$> (mapM (fmap ocNode . translate) $ pEntries node)
+        -- content
+        contents <- OCNodes . concat <$> (mapM (fmap (fmap ocNode) . translate) $ pEntries node)
         let vars = M.fromList [("contents", AV contents)]
         defTrans node area vars
 
@@ -224,6 +223,15 @@ instance AstNode Expression where
                              , ("subexpression", AV subexpr)]
         defTrans node area vars
 
+    translate (node@(InstanceConstruction typ arguments), area) = do
+        let rse = runSubExpr node
+        typ' <- rse $ translate typ
+        args <- rse $ mapM translate arguments
+        subexpr <- inSubExpr
+        let vars = M.fromList [("type", AV typ'), ("arguments", AV args)
+                              , ("subexpression", AV subexpr)]
+        defTrans node area vars
+
 
 instance AstNode VarRef where
     translate (node@(VarAccess var), area) = do
@@ -235,6 +243,8 @@ instance AstNode VarRef where
         let vars = M.fromList [("fieldName", AV field), ("object", AV obj')]
         defTrans node area vars
     
+instance AstNode Type where
+    translate = undefined
 
 runSubExpr :: AstNode n => n -> TL a -> TL a
 runSubExpr node = localS (sInSubExpr .~ True <<< sPrevExprType .~ name node)
@@ -251,15 +261,15 @@ parens node = chooseM needsParens (bracket' '(' ')') id
 english :: TLInfo -> TLInfo
 english = tlSLang .~ "en"
 
-webTranslate :: OutputClause -> TL OutputClause
+webTranslate :: [OutputClause] -> TL [OutputClause]
 webTranslate = undefined
 
-defTrans :: AstNode a => a -> Area -> AnyVariables -> TL OutputClause
+defTrans :: AstNode a => a -> Area -> AnyVariables -> TL [OutputClause]
 defTrans node area vars = do
     clauses <- getClauses $ name node
     parens' <- parens node
     case clauses of
-      Just clauses' -> result node area . parens' $ insertClauses clauses' vars
+      Just clauses' -> result node area . parens' =<< insertClauses clauses' vars
       Nothing -> webTranslate =<< local english (translate (node, area))
         
 

@@ -36,7 +36,7 @@ data AstMeta = AstMeta --{ mPLang :: PLang, mSLang :: SLang }
                deriving (Show)
 
 class AstNode a where
-    translate :: AN a -> TL OutputClause
+    translate :: AN a -> TL [OutputClause]
     translate = undefined
     name :: a -> Text
     name = const ""

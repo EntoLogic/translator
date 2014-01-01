@@ -82,7 +82,7 @@ dbAccess phrases = do
         liftIO $ putStrLn "parsed code into AST"
         output <- liftIO $ runTL (TLInfo phrases pLang sLang) (TLState False "")
                       (translate  (uProg ast, Area Nothing Nothing))
-        (OCNode node) <- eFromRight output
+        [(OCNode node)] <- eFromRight output
         liftIO $ putStrLn "runTranslation completed"
         return $ encode node
 
