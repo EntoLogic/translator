@@ -224,48 +224,17 @@ instance AstNode Expression where
                              , ("subexpression", AV subexpr)]
         defTrans node area vars
 
-{-
-    translate (anyNode, area) = do
-        clauses <- getClauses $ name anyNode
-        parens <- chooseM needsParens (bracket' '(' ')') id
-        let runSubExpr = localS (sInSubExpr .~ True <<<
-                            sPrevExprType .~ name anyNode) :: TL a -> TL a
-        translateExpr anyNode area clauses parens runSubExpr
-      where
-        needsParens = (&&) <$> use sInSubExpr <*> ((name anyNode ==) <$>
-                                                    use sPrevExprType)
 
-translateExpr :: Expression -> Area -> [Clause] -> ([OutputClause]
-                   -> [OutputClause]) -> (forall a. TL a -> TL a)
-                   -> TL OutputClause
-                   {-
-                                                    -}
-translateExpr node@(BinOp op lexpr rexpr) area clauses parens runSubExpr = do
-    tOp <- translate op
-    left <- runSubExpr $ translate lexpr
-    right <- runSubExpr $ translate rexpr
-    let vars = M.fromList [("operation", AV tOp)
-                 , ("left", AV left), ("right", AV right)]
-        translation = parens $ insertClauses clauses vars
-    result node area translation
+instance AstNode VarRef where
+    translate (node@(VarAccess var), area) = do
+        let vars = M.fromList [("varName", AV var)]
+        defTrans node area vars
+
+    translate (node@(FieldAccess obj field), area) = do
+        obj' <- runSubExpr node $ translate obj
+        let vars = M.fromList [("fieldName", AV field), ("object", AV obj')]
+        defTrans node area vars
     
-translateExpr node@(Assign varRef expression) area clauses parens runSubExpr = do
-    var <- translate varRef
-    expr <- runSubExpr $ translate expression
-    let vars = M.fromList [("variable", AV var), ("expression", AV expr)]
-        translation = parens $ insertClauses clauses vars
-    result node area translation
-
-translateExpr node@(OpAssign varRef infixOp expression) area clauses parens
-                runSubExpr = do
-    var <- runSubExpr $ translate varRef
-    op <- runSubExpr $ translate infixOp
-    expr <- runSubExpr $ translate expression
-    let vars = M.fromList [("variable", AV var), ("expression", AV expr),
-                           ("op", AV op)]
-        translation = parens $ insertClauses clauses vars
-    result node area translation
-    -}
 
 runSubExpr :: AstNode n => n -> TL a -> TL a
 runSubExpr node = localS (sInSubExpr .~ True <<< sPrevExprType .~ name node)
@@ -321,14 +290,4 @@ instance AstNode PostfixOp where
 
     translate (node, area) = defTrans node area M.empty
 
-instance AstNode VarRef where
-    translate (node@(VarAccess var), area) = do
-        let vars = M.fromList [("varName", AV var)]
-        defTrans node area vars
-
-    translate (node@(FieldAccess obj field), area) = do
-        obj' <- runSubExpr node $ translate obj
-        let vars = M.fromList [("fieldName", AV field), ("object", AV obj')]
-        defTrans node area vars
-    
 
