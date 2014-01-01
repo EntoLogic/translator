@@ -105,6 +105,14 @@ instance FromJSON Expression where
         parsers = [("Assignment", assignment), ("OpAssign", opAssign), ("BinaryExpr", binExpr), ("IntLit", intLit),
                    ("PrefixOp", preOp), ("PostfixOp", postOp)]
 
+instance FromJSON VarRef where
+    parseJSON (String s) = pure $ VarAccess s
+    parseJSON (Object obj) = do
+        (String typ) <- obj .: "node"
+        case typ of
+          "VarAccess" -> VarAccess <$> obj .: "var"
+          "FieldAccess" -> FieldAccess <$> obj .: "obj" <*> obj .: "field"
+
 instance FromJSON a => FromJSON (AN a) where
     parseJSON obj@(Object map) = tupleM (parseJSON obj, area map)
     parseJSON obj = tupleM (parseJSON obj, return $ Area Nothing Nothing)
@@ -149,8 +157,6 @@ postOp = preOrPostOp PostOp
 
 intLit obj = IntLit . read <$> obj .: "value"
 
-instance FromJSON VarRef where
-    parseJSON (String s) = pure $ StringV s
 
 instance FromJSON InfixOp where
     parseJSON (String s) = do
