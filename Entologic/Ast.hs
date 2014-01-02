@@ -55,8 +55,21 @@ data ProgramEntry = PEFunc Function
 data Program = Program { pEntries :: [ProgramEntry'] }
                deriving (Show)
 
+data KWType = Int
+            | Long
+            | Short
+            | Byte
+            | Char
+            | Float
+            | Double
+            | LDouble
+            | Bool
+              deriving (Show, Ord, Eq)
+
 type Type' = AN Type
 data Type = StringT Text
+          | ArrayT Type'
+          | KeywordT KWType
 --          | forall a. (ASTNode a, Show a) => LSType a
             deriving (Show, Ord, Eq)
 
