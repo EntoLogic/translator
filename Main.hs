@@ -23,9 +23,9 @@ main' :: ErrorT String IO ()
 main' = do
     config <- loadConfigs
     dbInfo <- dbConnect config
-    liftIO $ accessDb config dbInfo
-    liftIO $ threadDelay 3000000
-    main'
+    forever $ do
+        liftIO $ accessDb config dbInfo
+        liftIO $ threadDelay 3000000
 
 accessDb :: Config -> DBInfo -> IO ()
 accessDb config pipe = do

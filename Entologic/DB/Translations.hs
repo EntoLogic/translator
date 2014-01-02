@@ -91,33 +91,44 @@ dbConnect (Config (Login hostname port user pass db) _ _)= do
 
 dbInteract :: Config -> DBInfo -> ErrorT String IO ()
 dbInteract config pipe = do
-    access pipe master (config ^. login.db) (dbAccess $ config ^. phrases)
+    access pipe master (config ^. login.db) (dbAccess $ config)
     liftIO $ close pipe
     liftIO $ putStrLn "Finished databasing"
 
-dbAccess :: Phrases -> DB.Action (ErrorT String IO) ()
-dbAccess phrases = do
+dbAccess :: Config -> DB.Action (ErrorT String IO) ()
+dbAccess config = do
     liftIO $ putStrLn "authenticated!"
     toTranslate <- nextN 10 =<< DB.find (select ["lastTranslated" := DB.Null]
                                             "explanations")
                                            {sort = ["updatedAt" =: (1 :: Int)]}
     liftIO $ putStrLn $ "got things to translate, length " ++ show (length toTranslate)
-    translations <- mapM (fmap (T.pack . L8.unpack) . lift . runTranslation) toTranslate
+    translations <- liftIO $ mapM (fmap (_1 %~ (fmap $ T.pack . L8.unpack)) . runTranslation) toTranslate
     time <- liftIO getCurrentTime
     let results = map (update time) $ zip toTranslate translations
     mapM_ (DB.save "explanations") results
 
   where
-    update time (doc, translation) = merge ["lastTranslated" =: time, "updatedAt" =: time, "outputTree" =: translation] doc
+    update time (doc, (translation, error)) = merge
+        ["lastTranslated" =: time, "updatedAt" =: time
+        , "outputTree" =: translation
+        , "translatorMessages" =: ([["msg" =: error, "msgType" =: T.pack "error"]] :: [Document]) ]
+      doc
 
-    runTranslation :: Document -> ErrorT String IO L.ByteString
+    runTranslation :: Document -> IO (Maybe L.ByteString, Maybe String)
     runTranslation doc = do
+        translation <- runErrorT $ runTranslation' doc
+        case translation of
+          Left err -> return (Nothing, Just err)
+          Right trans -> return (Just trans, Nothing)
+
+    runTranslation' :: Document -> ErrorT String IO L.ByteString
+    runTranslation' doc = do
         pLang <- DB.lookup "pLang" doc
         sLang <- DB.lookup "nLang" doc
         liftIO $ putStrLn $ "running translation: pLang = " ++ T.unpack pLang ++ ", sLang = " ++ T.unpack sLang
-        ast <- parseCode pLang =<< L8.pack <$> DB.lookup "plainCodeInput" doc
+        ast <- parseCode (config ^. astGens) pLang =<< L8.pack <$> DB.lookup "plainCodeInput" doc
         liftIO $ putStrLn "parsed code into AST"
-        output <- liftIO $ runTL (TLInfo phrases pLang sLang) (TLState False "")
+        output <- liftIO $ runTL (TLInfo (config ^. phrases) pLang sLang) (TLState False "")
                       (translate  (uProg ast, Area Nothing Nothing))
         [(OCNode node)] <- eFromRight output
         liftIO $ putStrLn "runTranslation completed"
@@ -139,9 +150,8 @@ add :: Text -> Value -> Document -> Document
 add doc k v = (k := v) : doc
 -}
 
-parseCode :: Text -> L.ByteString -> ErrorT String IO UAst
-parseCode pLang code = do
-    astGens <- eFromRight =<< (liftIO $ eitherDecode <$> L8.readFile "astgens.json")
+parseCode :: M.Map Text Text -> Text -> L.ByteString -> ErrorT String IO UAst
+parseCode astGens pLang code = do
     gen <- eFromJust $ M.lookup pLang astGens
     let cp = CreateProcess
                { cmdspec = RawCommand (T.unpack gen) [], cwd = Nothing
