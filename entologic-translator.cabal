@@ -32,3 +32,4 @@ executable entologic-translator
                      , lens >=3.10
                      , vector -any
                      , attoparsec -any
+                     , semigroups -any

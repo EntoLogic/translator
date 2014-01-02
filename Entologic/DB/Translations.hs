@@ -34,10 +34,12 @@ import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString as SBS
 import qualified Data.Map as M
 import qualified Data.Text as T
+import qualified Data.Text.IO as T.IO
 import Data.Text (Text(..))
 import Data.Time.Clock
 import Data.Word (Word16)
 import Data.Endian
+import Data.Semigroup ((<>))
 
 import Network.Socket.Internal (PortNumber(..))
 
@@ -160,32 +162,18 @@ dbAccess config = do
         liftIO $ putStrLn "runTranslation completed"
         return $ encode node
 
-{-
-modify :: Text -> Value -> Document -> Document
-modify doc nk nv = finish $ foldl update' doc ([], False)
-  where
-    update' (acc, found) field@(k := _)
-      | k == nk = ((nk := nv) : acc, True)
-      | otherwise = (field : acc, found)
-
-    finish (list, True) = list
-    finish (list, False) = (nk := nv) : list
-
-
-add :: Text -> Value -> Document -> Document
-add doc k v = (k := v) : doc
--}
-
 parseCode :: M.Map Text Text -> Text -> L.ByteString -> ErrorT String IO UAst
 parseCode astGens pLang code = do
     liftIO $ putStr "About to parse code: " >> L8.putStrLn code
     gen <- eFromJust $ M.lookup pLang astGens
+    liftIO $ T.IO.putStrLn $ " parsing code with " <> gen
     let cp = CreateProcess
                { cmdspec = RawCommand (T.unpack gen) [], cwd = Nothing
                , env = Nothing, std_in = CreatePipe, std_out = CreatePipe
                , std_err = Inherit, close_fds = True, create_group = False
                , delegate_ctlc = False }
     (mstdin, mstdout, _, _) <- liftIO $ createProcess cp
+    liftIO $ putStrLn "Launched AST generator"
     stdin <- errFromJust "Missing stdin handle for AST generator" mstdin
     stdout <- errFromJust "Missing stdout handle for AST generator" mstdout
     liftIO $ do
@@ -193,4 +181,5 @@ parseCode astGens pLang code = do
         hClose stdin
     ast <- eFromRight =<< (liftIO $ eitherDecodeStrict <$> SBS.hGetContents stdout)
     liftIO $ hClose stdout
+    liftIO $ putStrLn "Got AST from generator"
     return ast
