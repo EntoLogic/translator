@@ -86,7 +86,11 @@ dbConnect (Config (Login hostname port user pass db) _ _)= do
     liftIO $ putStrLn $ "connecting to " ++ hostname ++ ":" ++ show port
     liftIO $ putStrLn $ "connecting to " ++ showHostPort host
     pipe <- changeError show $ connect host
-    access pipe master db $ auth user pass
+    authResult <- access pipe master db $ auth user pass
+    case authResult of
+      Left err -> throwError $ show err
+      Right False -> throwError "authentication failure!"
+      _ -> liftIO $ putStrLn "authenticated!"
     return pipe
 
 dbInteract :: Config -> DBInfo -> ErrorT String IO ()
@@ -97,7 +101,6 @@ dbInteract config pipe = do
 
 dbAccess :: Config -> DB.Action (ErrorT String IO) ()
 dbAccess config = do
-    liftIO $ putStrLn "authenticated!"
     toTranslate <- nextN 10 =<< DB.find (select ["lastTranslated" := DB.Null]
                                             "explanations")
                                            {sort = ["updatedAt" =: (1 :: Int)]}
