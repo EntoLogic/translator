@@ -169,7 +169,7 @@ parseCode astGens pLang code = do
                , env = Nothing, std_in = CreatePipe, std_out = CreatePipe
                , std_err = Inherit, close_fds = True, create_group = False
                , delegate_ctlc = False }
-    (mstdin, mstdout, _, _) <- liftIO $ createProcess cp
+    (mstdin, mstdout, _, pHandle) <- liftIO $ createProcess cp
     liftIO $ putStrLn "Launched AST generator"
     stdin <- errFromJust "Missing stdin handle for AST generator" mstdin
     stdout <- errFromJust "Missing stdout handle for AST generator" mstdout
@@ -183,5 +183,6 @@ parseCode astGens pLang code = do
     ast <- efFromRight ("Error parsing AST generator output: " ++) .
                 eitherDecode . L.fromStrict $ contents
     liftIO $ hClose stdout
+    liftIO $ waitForProcess pHandle
     liftIO $ putStrLn "Got AST from generator"
     return ast
