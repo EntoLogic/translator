@@ -3,3 +3,4 @@
 cabal-dev/
 dist/
 login.json
+astgens.json
