@@ -1,5 +1,7 @@
 
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings
+           , ScopedTypeVariables
+           , TemplateHaskell #-}
 
 module Entologic.DB.Translations where
 
@@ -20,9 +22,11 @@ import System.IO
 import System.Process
 
 import Control.Applicative
-import Control.Monad.Trans.Error
+import Control.Monad.Error
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
+import Control.Lens
+import Control.Lens.TH
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy as L
@@ -38,28 +42,61 @@ import Network.Socket.Internal (PortNumber(..))
 
 import Text.Read (readMaybe)
 
+type DBInfo = DB.Pipe
 
-dbInteract :: ErrorT String IO ()
-dbInteract = do
-    args <- liftIO getArgs
-    case args of
-      (dbHost:port:_) ->
-        case readMaybe port :: Maybe Word16 of
-          Nothing -> throwError "Invalid port number"
-          Just port' -> do
-            let host = Host dbHost (PortNumber $ PortNum $ swapEndian port')
-            liftIO $ putStrLn $ "connecting to " ++ dbHost ++ ":" ++ show port'
-            liftIO $ putStrLn $ "connecting to " ++ showHostPort host
-            pipe <- liftIO (runIOE $ connect host)
-            phrases <- liftIO $ readPhrases "phrase.json"
-            access pipe master "entologic_dev" (dbAccess phrases)
-            liftIO $ close pipe
-            liftIO $ putStrLn "Finished databasing"
-      _ -> throwError "Usage: ./Main host port"
+data Config = Config { _login :: Login
+                     , _astGens :: M.Map Text Text
+                     , _phrases :: Phrases
+                     }
 
-dbAccess :: Phrases -> Action (ErrorT String IO) ()
+data Login = Login { _host :: String
+                   , _port :: DB.PortID
+                   , _username :: DB.Username
+                   , _password :: DB.Password
+                   , _db :: Text
+                   }
+
+$(makeLenses ''Config)
+$(makeLenses ''Login)
+
+toPortId :: Word16 -> DB.PortID
+toPortId word = DB.PortNumber . PortNum $ swapEndian word
+
+instance FromJSON Login where
+    parseJSON (Object obj) = Login <$> obj .: "host"
+                                   <*> (toPortId <$> obj .: "port")
+                                   <*> obj .: "username"
+                                   <*> obj .: "password"
+                                   <*> obj .: "db"
+
+readJson :: FromJSON a => String -> ErrorT String IO a
+readJson filename = eFromRight =<< (liftIO $ eitherDecode <$>
+                                                L8.readFile filename)
+
+loadConfigs :: ErrorT String IO Config
+loadConfigs = do
+    login <- readJson "login.json"
+    astGens <- readJson "astgens.json"
+    phrases <- readJson "phrase.json"
+    return $ Config login astGens phrases
+
+dbConnect :: Config -> ErrorT String IO DBInfo
+dbConnect (Config (Login hostname port user pass db) _ _)= do
+    let host = Host hostname port
+    liftIO $ putStrLn $ "connecting to " ++ hostname ++ ":" ++ show port
+    liftIO $ putStrLn $ "connecting to " ++ showHostPort host
+    pipe <- changeError show $ connect host
+    access pipe master db $ auth user pass
+    return pipe
+
+dbInteract :: Config -> DBInfo -> ErrorT String IO ()
+dbInteract config pipe = do
+    access pipe master (config ^. login.db) (dbAccess $ config ^. phrases)
+    liftIO $ close pipe
+    liftIO $ putStrLn "Finished databasing"
+
+dbAccess :: Phrases -> DB.Action (ErrorT String IO) ()
 dbAccess phrases = do
-    auth "jobs" "ACHDsUWjJXNtlXIwlgf4EebC"
     liftIO $ putStrLn "authenticated!"
     toTranslate <- nextN 10 =<< DB.find (select ["lastTranslated" := DB.Null]
                                             "explanations")

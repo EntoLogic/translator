@@ -25,7 +25,7 @@ import Control.Monad.State.Class
 import Control.Monad.Trans.Reader(ReaderT(..))
 import Control.Monad.Reader.Class
 import Control.Monad.Error.Class
-import Control.Monad.Trans.Error(ErrorT(..))
+import Control.Monad.Error (ErrorT(..))
 import Control.Monad.Trans.Class
 import Control.Lens.TH
 

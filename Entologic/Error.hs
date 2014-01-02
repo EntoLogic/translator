@@ -2,6 +2,7 @@
 module Entologic.Error where
 
 import Control.Monad.Error.Class
+import Control.Monad.Error
 
 eFromJust :: (Error e, MonadError e m) => Maybe a -> m a
 eFromJust (Just a) = return a
@@ -22,3 +23,13 @@ efFromRight f (Left b) = throwError $ f b
 errFromRight :: (MonadError e m) => e -> Either b a -> m a
 errFromRight _ (Right a) = return a
 errFromRight err (Left _) = throwError err
+
+changeError :: (Error e, Error f, Monad m) => (e -> f) -> ErrorT e m a -> ErrorT f m a
+changeError f a = ErrorT $ changeError' f a
+
+changeError' :: (Error e, Error f, Monad m) => (e -> f) -> ErrorT e m a -> m (Either f a)
+changeError' func action = do
+    result <- runErrorT action 
+    case result of
+        Right x -> return $ Right x
+        Left e -> return . Left $ func e
