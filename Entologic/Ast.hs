@@ -119,6 +119,7 @@ data Statement = VarDecl { vdType :: Type'
                          , vdInit :: Maybe Expression'
                          }
                | StmExpr Expression
+
                  deriving (Show, Ord, Eq)
 
 type VarRef' = AN VarRef

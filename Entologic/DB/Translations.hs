@@ -51,8 +51,8 @@ data Config = Config { _login :: Login
 
 data Login = Login { _host :: String
                    , _port :: DB.PortID
-                   , _username :: DB.Username
-                   , _password :: DB.Password
+                   , _username :: Maybe DB.Username
+                   , _password :: Maybe DB.Password
                    , _db :: Text
                    }
 
@@ -65,33 +65,48 @@ toPortId word = DB.PortNumber . PortNum $ swapEndian word
 instance FromJSON Login where
     parseJSON (Object obj) = Login <$> obj .: "host"
                                    <*> (toPortId <$> obj .: "port")
-                                   <*> obj .: "username"
-                                   <*> obj .: "password"
+                                   <*> obj .:? "username"
+                                   <*> obj .:? "password"
                                    <*> obj .: "db"
 
 readJson :: FromJSON a => String -> ErrorT String IO a
 readJson filename = eFromRight =<< (liftIO $ eitherDecode <$>
                                                 L8.readFile filename)
 
+txtToMaybe :: Text -> Maybe Text
+txtToMaybe t = if T.length t > 0 then Just t else Nothing
+
+remEmptyTxt :: Maybe Text -> Maybe Text
+remEmptyTxt = (>>= txtToMaybe)
+
 loadConfigs :: ErrorT String IO Config
 loadConfigs = do
     login <- readJson "login.json"
+    let login' = login & (username %~ remEmptyTxt) . (password %~ remEmptyTxt)
     astGens <- readJson "astgens.json"
     phrases <- readJson "phrase.json"
     return $ Config login astGens phrases
 
 dbConnect :: Config -> ErrorT String IO DBInfo
-dbConnect (Config (Login hostname port user pass db) _ _)= do
+dbConnect (Config login@(Login hostname port user pass db) _ _)= do
     let host = Host hostname port
     liftIO $ putStrLn $ "connecting to " ++ hostname ++ ":" ++ show port
     liftIO $ putStrLn $ "connecting to " ++ showHostPort host
     pipe <- changeError show $ connect host
-    authResult <- access pipe master db $ auth user pass
-    case authResult of
-      Left err -> throwError $ show err
-      Right False -> throwError "authentication failure!"
-      _ -> liftIO $ putStrLn "authenticated!"
+    maybeAuth login pipe
     return pipe
+
+maybeAuth :: Login -> DBInfo -> ErrorT String IO ()
+maybeAuth (Login _ _ user pass db) pipe = do
+    let possAuth = access pipe master db <$> (auth <$> user <*> pass)
+    case possAuth of
+      Nothing -> return ()
+      Just pa -> do
+        authResult <- pa
+        case authResult of
+          Left err -> throwError $ show err
+          Right False -> throwError "authentication failure!"
+          _ -> liftIO $ putStrLn "authenticated!"
 
 dbInteract :: Config -> DBInfo -> ErrorT String IO ()
 dbInteract config pipe = do

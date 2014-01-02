@@ -87,6 +87,7 @@ instance Variable a => ShowOrVariable a where
     showOrInPhrase = inPhrase
 -}
 
+
 instance Variable a => Variable [a] where
     present = (>0) . length
     comparison = length
@@ -124,6 +125,11 @@ instance Variable OutputClause where
     comparison (OCString x) = comparison x
     comparison (OCNodes xs) = length xs
     comparison _ = 1
+
+instance Variable [OutputClause] where
+    inPhrase = return
+    present = foldl (||) False . map present
+    comparison = foldl (+) 0 . map comparison
 
 {-
 instance AstNode a => Variable a where
@@ -179,6 +185,9 @@ instance AstNode Expression where
     name (PreOp {}) = "PrefixExpr"
     name (PostOp {}) = "PostfixExpr"
     name (Assign {}) = "Assignment"
+    name (InstanceConstruction {}) = "InstanceConstruction"
+    name (MethodCall {}) = "MethodCall"
+    name (FunctionCall {}) = "FunctionCall"
 
     translate (node@(Assign varRef expression), area) = do
         let rse = runSubExpr node
@@ -253,7 +262,6 @@ instance AstNode Expression where
         let vars = M.fromList [("functionName", AV function)
                     , ("genericParameters", AV gParams), ("arguments", AV args)]
         defTrans node area vars
-
 
 
 instance AstNode VarRef where

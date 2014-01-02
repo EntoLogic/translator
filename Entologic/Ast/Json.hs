@@ -123,20 +123,20 @@ an f obj@(Object map) = tupleM (f obj, area map)
 an' :: (Object -> Parser a) -> Object -> Parser (AN a)
 an' f obj = tupleM (f obj, area obj)
 
-assignment obj = Assign <$> obj .: "Variable"
-                        <*> obj .: "Value"
+assignment obj = Assign <$> obj .: "variable"
+                        <*> obj .: "value"
 
-opAssign obj = OpAssign <$> obj .: "Variable"
-                        <*> obj .: "Op"
-                        <*> obj .: "Value"
+opAssign obj = OpAssign <$> obj .: "variable"
+                        <*> obj .: "op"
+                        <*> obj .: "value"
 
 binExpr obj = BinOp <$> obj .: "op"
                     <*> obj .: "left"
                     <*> obj .: "right"
 
 preOrPostOp :: FromJSON a => (AN a -> Expression' -> Expression) -> Object -> Parser Expression
-preOrPostOp const obj = const <$> obj .: "Op"
-                              <*> obj .: "Arg"
+preOrPostOp const obj = const <$> obj .: "op"
+                              <*> obj .: "operand"
 
 instance FromJSON PrefixOp where
     parseJSON (String s) = do
