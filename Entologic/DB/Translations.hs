@@ -31,6 +31,7 @@ import Control.Lens.TH
 import Data.Aeson
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as L8
+import qualified Data.ByteString as SBS
 import qualified Data.Map as M
 import qualified Data.Text as T
 import Data.Text (Text(..))
@@ -190,5 +191,6 @@ parseCode astGens pLang code = do
     liftIO $ do
         L.hPut stdin code
         hClose stdin
-    eFromRight =<< (liftIO $ eitherDecode <$> L.hGetContents stdout)
---    (stdin, stdout, stderr
+    ast <- eFromRight =<< (liftIO $ eitherDecodeStrict <$> SBS.hGetContents stdout)
+    liftIO $ hClose stdout
+    return ast
