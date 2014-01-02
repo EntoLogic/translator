@@ -114,11 +114,15 @@ dbAccess config = do
     mapM_ (DB.save "explanations") results
 
   where
-    update time (doc, (translation, error)) = merge
-        ["lastTranslated" =: time, "updatedAt" =: time
-        , "outputTree" =: translation
-        , "translatorMessages" =: ([["msg" =: error, "msgType" =: T.pack "error"]] :: [Document]) ]
-      doc
+    update time (doc, (translation, error)) = merge (edit error changes) doc
+      where
+        edit Nothing = id
+        edit (Just error) =
+            (("translatorMessages" =:
+                [["msg" =: error, "msgType" =: T.pack "error"]])
+            : )
+        changes = ["lastTranslated" =: time, "updatedAt" =: time
+                   , "outputTree" =: translation]
 
     runTranslation :: Document -> IO (Maybe L.ByteString, Maybe String)
     runTranslation doc = do
