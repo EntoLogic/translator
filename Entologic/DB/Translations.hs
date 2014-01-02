@@ -101,6 +101,7 @@ dbInteract config pipe = do
 
 dbAccess :: Config -> DB.Action (ErrorT String IO) ()
 dbAccess config = do
+    liftIO $ putStrLn "about to query"
     toTranslate <- nextN 10 =<< DB.find (select ["lastTranslated" := DB.Null]
                                             "explanations")
                                            {sort = ["updatedAt" =: (1 :: Int)]}
@@ -155,6 +156,7 @@ add doc k v = (k := v) : doc
 
 parseCode :: M.Map Text Text -> Text -> L.ByteString -> ErrorT String IO UAst
 parseCode astGens pLang code = do
+    liftIO $ putStr "About to parse code: " >> L.putStrLn code
     gen <- eFromJust $ M.lookup pLang astGens
     let cp = CreateProcess
                { cmdspec = RawCommand (T.unpack gen) [], cwd = Nothing
