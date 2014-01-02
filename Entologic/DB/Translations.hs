@@ -179,7 +179,12 @@ parseCode astGens pLang code = do
     liftIO $ do
         L.hPut stdin code
         hClose stdin
-    ast <- eFromRight =<< (liftIO $ eitherDecodeStrict <$> SBS.hGetContents stdout)
+    contents <- liftIO $ SBS.hGetContents stdout
+    liftIO $ do
+        putStr "AST generator result: "
+        SBS.putStrLn contents
+    ast <- efFromRight ("Error parsing AST generator output: " ++) .
+                eitherDecode . L.fromStrict $ contents
     liftIO $ hClose stdout
     liftIO $ putStrLn "Got AST from generator"
     return ast
