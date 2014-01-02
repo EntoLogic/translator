@@ -1,0 +1,7 @@
+{
+	"username": "person",
+	"password": "lol",
+	"port": 1234,
+	"host": "mongo.com",
+	"db": "entologic_dev"
+}
