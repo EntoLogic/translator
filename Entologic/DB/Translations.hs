@@ -95,9 +95,11 @@ dbConnect (Config (Login hostname port user pass db) _ _)= do
 
 dbInteract :: Config -> DBInfo -> ErrorT String IO ()
 dbInteract config pipe = do
-    access pipe master (config ^. login.db) (dbAccess $ config)
-    liftIO $ close pipe
-    liftIO $ putStrLn "Finished databasing"
+    accessResult <- access pipe master (config ^. login.db) (dbAccess $ config)
+    case accessResult of
+      Left err -> throwError $ show err
+      Right _ -> liftIO $ putStrLn "Finished databasing"
+    
 
 dbAccess :: Config -> DB.Action (ErrorT String IO) ()
 dbAccess config = do
@@ -156,7 +158,7 @@ add doc k v = (k := v) : doc
 
 parseCode :: M.Map Text Text -> Text -> L.ByteString -> ErrorT String IO UAst
 parseCode astGens pLang code = do
-    liftIO $ putStr "About to parse code: " >> L.putStrLn code
+    liftIO $ putStr "About to parse code: " >> L8.putStrLn code
     gen <- eFromJust $ M.lookup pLang astGens
     let cp = CreateProcess
                { cmdspec = RawCommand (T.unpack gen) [], cwd = Nothing
