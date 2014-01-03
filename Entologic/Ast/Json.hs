@@ -27,7 +27,7 @@ readAstFile path = do
     either (return . error) return $ eitherDecode json
 
 area :: Object -> Parser Area
-area obj = area' =<< obj .:? "location"
+area obj = area' =<< obj .:? "loc"
 
 area' :: Maybe Object -> Parser Area
 area' (Nothing) = pure $ Area Nothing Nothing
@@ -37,6 +37,7 @@ instance FromJSON (Maybe Location) where
     parseJSON (Array arr) = return $ Location <$> (toInt <$> arr !? 0) <*> (toInt <$> arr !? 1)
       where
         toInt (Number (I i)) = fromIntegral i
+        toInt (Number (D d)) = floor d
     parseJSON _ = return Nothing
 
 instance FromJSON UAst where
