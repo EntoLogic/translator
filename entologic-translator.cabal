@@ -15,7 +15,7 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 executable entologic-translator
-  main-is:            Main.hs
+  main-is:             Main.hs
   -- other-modules:       
   build-depends:       base >=4.6
                      , transformers >=0.3
@@ -33,3 +33,14 @@ executable entologic-translator
                      , vector -any
                      , attoparsec -any
                      , semigroups -any
+
+executable dlphrases
+  main-is:             Entologic/DB/Phrases.hs
+
+  build-depends:       base >=4.6
+                     , transformers >=0.3
+                     , mtl >=2.1
+                     , text >=0.11
+                     , containers >=0.5
+                     , mongoDB >=1.4
+                     , lens >=3.10
