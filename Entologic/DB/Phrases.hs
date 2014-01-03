@@ -43,10 +43,12 @@ sortPhrases :: [Document] -> Maybe (Map Text (Map Text (Map Text [Document])))
 sortPhrases = foldM sortPhrase M.empty
   where
     sortPhrase map phrase =
-        insertPhrase map phrase <$> DB.lookup "node_name" phrase
-                                <*> DB.lookup "plang" phrase
-                                <*> DB.lookup "nlang" phrase
-    insertPhrase map phrase node plang slang =
+        insertPhrase map phrase <$> DB.lookup "phraseName" phrase
+                                <*> DB.lookup "pLang" phrase
+                                <*> DB.lookup "nLang" phrase
+                                <*> DB.lookup "inUse" phrase
+    insertPhrase :: Map Text (Map Text (Map Text [Document])) -> Document -> Text -> PLang -> SLang -> Bool -> Map Text (Map Text (Map Text [Document]))
+    insertPhrase map phrase node plang slang inUse = if not inUse then map else
         case M.lookup node map of
           Nothing -> M.insert node (M.singleton plang $ M.singleton slang [phrase]) map
           Just nMap ->
@@ -61,8 +63,8 @@ topVotedNodes :: Map Text (Map Text (Map Text [Document])) -> Map Text (Map Text
 topVotedNodes = fmap.fmap.fmap $ maximumBy cmpVotes
   where
     cmpVotes d1 d2 = compare (votes d1) (votes d2)
-    votes phrase = foldl count 0 (DB.at "votes" phrase)
-    count acc (k := (Doc vote)) = acc + (DB.at "value" vote :: Int32)
+    votes :: Document -> Int
+    votes phrase = DB.at "voteCache" phrase
 
 -- a = Phrase; b = Map Text Document; c = PPhrase
 toGenPhrase :: (Text -> c -> Map Text c -> a) -> Text -> (Text -> b -> Maybe c)
