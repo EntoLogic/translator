@@ -14,6 +14,7 @@ import Entologic.Phrase
 import Entologic.Phrase.Json
 import Entologic.Output
 import Entologic.Output.Json
+import Entologic.DB
 
 import Database.MongoDB as DB
 
@@ -26,7 +27,6 @@ import Control.Monad.Error
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Lens
-import Control.Lens.TH
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy as L
@@ -37,50 +37,10 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T.IO
 import Data.Text (Text(..))
 import Data.Time.Clock
-import Data.Word (Word16)
-import Data.Endian
 import Data.Semigroup ((<>))
 
-import Network.Socket.Internal (PortNumber(..))
 
 import Text.Read (readMaybe)
-
-type DBInfo = DB.Pipe
-
-data Config = Config { _login :: Login
-                     , _astGens :: M.Map Text Text
-                     , _phrases :: Phrases
-                     }
-
-data Login = Login { _host :: String
-                   , _port :: DB.PortID
-                   , _username :: Maybe DB.Username
-                   , _password :: Maybe DB.Password
-                   , _db :: Text
-                   }
-
-$(makeLenses ''Config)
-$(makeLenses ''Login)
-
-toPortId :: Word16 -> DB.PortID
-toPortId word = DB.PortNumber . PortNum $ swapEndian word
-
-instance FromJSON Login where
-    parseJSON (Object obj) = Login <$> obj .: "host"
-                                   <*> (toPortId <$> obj .: "port")
-                                   <*> obj .:? "username"
-                                   <*> obj .:? "password"
-                                   <*> obj .: "db"
-
-readJson :: FromJSON a => String -> ErrorT String IO a
-readJson filename = eFromRight =<< (liftIO $ eitherDecode <$>
-                                                L8.readFile filename)
-
-txtToMaybe :: Text -> Maybe Text
-txtToMaybe t = if T.length t > 0 then Just t else Nothing
-
-remEmptyTxt :: Maybe Text -> Maybe Text
-remEmptyTxt = (>>= txtToMaybe)
 
 loadConfigs :: ErrorT String IO Config
 loadConfigs = do
@@ -89,27 +49,6 @@ loadConfigs = do
     astGens <- readJson "astgens.json"
     phrases <- readJson "phrase.json"
     return $ Config login astGens phrases
-
-dbConnect :: Config -> ErrorT String IO DBInfo
-dbConnect (Config login@(Login hostname port user pass db) _ _)= do
-    let host = Host hostname port
-    liftIO $ putStrLn $ "connecting to " ++ hostname ++ ":" ++ show port
-    liftIO $ putStrLn $ "connecting to " ++ showHostPort host
-    pipe <- changeError show $ connect host
-    maybeAuth login pipe
-    return pipe
-
-maybeAuth :: Login -> DBInfo -> ErrorT String IO ()
-maybeAuth (Login _ _ user pass db) pipe = do
-    let possAuth = access pipe master db <$> (auth <$> user <*> pass)
-    case possAuth of
-      Nothing -> return ()
-      Just pa -> do
-        authResult <- pa
-        case authResult of
-          Left err -> throwError $ show err
-          Right False -> throwError "authentication failure!"
-          _ -> liftIO $ putStrLn "authenticated!"
 
 dbInteract :: Config -> DBInfo -> ErrorT String IO ()
 dbInteract config pipe = do

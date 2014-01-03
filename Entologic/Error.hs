@@ -33,3 +33,11 @@ changeError' func action = do
     case result of
         Right x -> return $ Right x
         Left e -> return . Left $ func e
+
+errorTToIO :: (Error e, Show e) => ErrorT e IO a -> IO ()
+errorTToIO errorT = do
+    result <- runErrorT errorT
+    case result of
+      Left err -> putStrLn $ "Error: " ++ show err
+      Right _ -> return ()
+

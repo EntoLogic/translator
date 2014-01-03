@@ -10,34 +10,56 @@ import Data.Map(Map(..))
 import Data.Text(Text(..))
 import Data.Int
 import qualified Data.Traversable as TV
+import qualified Data.ByteString.Lazy as LBS
+import Data.Aeson
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Error
+import Control.Lens ((^.))
 
 import System.Environment
+import System.Posix.IO
+import System.IO
 
 import Database.MongoDB hiding (lookup)
 import qualified Database.MongoDB as DB
 
+import Entologic.DB
+import Entologic.Error
 import Entologic.Phrase
+import Entologic.Phrase.Json
+
+main' :: ErrorT String IO ()
+main' = do
+    login <- readJson "login.json"
+    pipe <- dbConnect login
+    phrases <- efFromRight (("Error: " ++) . show) =<< liftIO (access pipe master (login ^. db) dbAccess)
+    liftIO $ writeToJson phrases
 
 main :: IO ()
-main = do
-    (dbHost:args) <- getArgs
-    pipe <- runIOE . connect $ host dbHost
-    phrases <- access pipe master "entologic_dev" dbAccess
-    close pipe
+main = errorTToIO main'
+
+writeToJson :: Phrases -> IO ()
+writeToJson phrases = do
+    let json = encode phrases
+    file <- openFile "phrase.json" WriteMode
+    hLock file
+    LBS.hPut file json
+    hUnlock file
+    hClose file
 
 mFromJust :: Monad m => Maybe a -> m a
 mFromJust = maybe (fail "") return
 
-dbAccess :: Action IO ()
+dbAccess :: Action IO Phrases
 dbAccess = do
     docs <- rest =<< DB.find (select [] "phrases")
     nodes <- mFromJust $ sortPhrases docs
     let nodes' = topVotedNodes nodes
     let phrases = M.mapWithKey toPhrase nodes'
-    return ()
+    return $ M.mapMaybe id phrases
+
 
 sortPhrases :: [Document] -> Maybe (Map Text (Map Text (Map Text [Document])))
 sortPhrases = foldM sortPhrase M.empty
