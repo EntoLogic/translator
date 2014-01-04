@@ -29,13 +29,13 @@ import System.Posix.IO
 import Entologic.Phrase
 import Entologic.Error
 
-type DBInfo = DB.Pipe
 
 data Config = Config { _login :: Login
                      , _astGens :: M.Map Text Text
-                     , _phrases :: Phrases
+                     , _phrases :: Maybe Phrases
                      , _newPhrases :: MVar Phrases
                      }
+              deriving (Eq)
 
 data Login = Login { _host :: String
                    , _port :: DB.PortID
@@ -43,6 +43,7 @@ data Login = Login { _host :: String
                    , _password :: Maybe DB.Password
                    , _db :: Text
                    }
+             deriving (Eq, Ord, Show)
 
 $(makeLenses ''Config)
 $(makeLenses ''Login)
@@ -67,7 +68,7 @@ txtToMaybe t = if T.length t > 0 then Just t else Nothing
 remEmptyTxt :: Maybe Text -> Maybe Text
 remEmptyTxt = (>>= txtToMaybe)
 
-maybeAuth :: Login -> DBInfo -> ErrorT String IO ()
+maybeAuth :: Login -> Pipe -> ErrorT String IO ()
 maybeAuth (Login _ _ user pass db) pipe = do
     let possAuth = access pipe master db <$> (auth <$> user <*> pass)
     case possAuth of
@@ -80,13 +81,15 @@ maybeAuth (Login _ _ user pass db) pipe = do
           _ -> liftIO $ putStrLn "authenticated!"
 
 
-dbConnect :: Login -> ErrorT String IO DBInfo
+dbConnect :: Login -> ErrorT String IO Pipe
 dbConnect login@(Login hostname port user pass db) = do
     let host = Host hostname port
     liftIO $ putStrLn $ "connecting to " ++ hostname ++ ":" ++ show port
     liftIO $ putStrLn $ "connecting to " ++ showHostPort host
     pipe <- changeError show $ connect host
+    liftIO $ putStrLn "Connected!"
     maybeAuth login pipe
+    liftIO $ putStrLn "Maybe authenticated"
     return pipe
 
 hLock :: Handle -> IO ()

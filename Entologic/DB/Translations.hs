@@ -48,11 +48,11 @@ loadConfigs = do
     login <- readJson "login.json"
     let login' = login & (username %~ remEmptyTxt) . (password %~ remEmptyTxt)
     astGens <- readJson "astgens.json"
-    phrases <- readJson "phrase.json"
+--    phrases <- readJson "phrase.json"
     newPhrases <- liftIO newEmptyMVar
-    return $ Config login astGens phrases newPhrases
+    return $ Config login astGens Nothing newPhrases
 
-dbInteract :: Config -> DBInfo -> ErrorT String IO ()
+dbInteract :: Config -> Pipe -> ErrorT String IO ()
 dbInteract config pipe = do
     accessResult <- access pipe master (config ^. login.db) (dbAccess $ config)
     case accessResult of
@@ -94,7 +94,8 @@ dbAccess config = do
         liftIO $ putStrLn $ "running translation: pLang = " ++ T.unpack pLang ++ ", sLang = " ++ T.unpack sLang
         ast <- parseCode (config ^. astGens) pLang =<< L8.pack <$> DB.lookup "plainCodeInput" doc
         liftIO $ putStrLn "parsed code into AST"
-        output <- liftIO $ runTL (TLInfo (config ^. phrases) pLang sLang) (TLState False "")
+        phrases' <- eFromJust $ config ^. phrases
+        output <- liftIO $ runTL (TLInfo phrases' pLang sLang) (TLState False "")
                       (translate  (uProg ast, Area Nothing Nothing))
         [(OCNode node)] <- eFromRight output
         liftIO $ putStrLn "runTranslation completed"

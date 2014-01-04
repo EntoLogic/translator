@@ -6,6 +6,7 @@ import Control.Lens
 import Entologic.Error
 import Entologic.DB
 import Entologic.DB.Translations
+import Entologic.DB.Phrases
 
 import qualified Database.MongoDB as DB
 
@@ -24,22 +25,24 @@ main = errorTToIO main'
 main' :: ErrorT String IO ()
 main' = do
     config <- loadConfigs
-    dbInfo <- dbConnect (config ^. login)
-    liftIO $ dlPhrasesT config
-    liftIO $ loop config dbInfo
+    pipe <- dbConnect (config ^. login)
+    phrases' <- dlPhrases (config ^. login) pipe
+    let config' = config & phrases .~ Just phrases'
+    liftIO $ dlPhrasesT config pipe
+    liftIO $ loop config pipe
   where
-    loop config dbInfo = do
+    loop config pipe = do
         config' <- updateConfig config
-        accessDb config' dbInfo
+        accessDb config' pipe
         threadDelay 3000000
-        loop config' dbInfo
+        loop config' pipe
 
 updateConfig :: Config -> IO Config
 updateConfig config = do
     maybePhrases <- tryTakeMVar $ config ^. newPhrases
     case maybePhrases of
       Nothing -> return config
-      Just ps -> return $ config & phrases .~ ps
+      Just ps -> return $ config & phrases .~ Just ps
 
-accessDb :: Config -> DBInfo -> IO ()
+accessDb :: Config -> DB.Pipe -> IO ()
 accessDb config pipe = errorTToIO $ dbInteract config pipe

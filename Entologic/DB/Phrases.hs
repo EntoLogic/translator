@@ -33,19 +33,23 @@ import Entologic.Error
 import Entologic.Phrase
 import Entologic.Phrase.Json
 
-dlPhrases :: Login -> ErrorT String IO Phrases
-dlPhrases login = do
-    pipe <- dbConnect login
+dlPhrases :: Login -> Pipe -> ErrorT String IO Phrases
+dlPhrases login pipe = do
     phrases <- efFromRight (("Error: " ++) . show) =<<
                     liftIO (access pipe master (login ^. db) dbAccess)
-    liftIO $ close pipe
+    liftIO $ putStrLn "Got phrases: "
+    liftIO . putStrLn $ show phrases
     return phrases
 
-dlPhrasesT = forkIO . dlPhrasesT'
+(…) = (.).(.)
+infixr 9 …
 
-dlPhrasesT' :: Config -> IO ()
-dlPhrasesT' config = do
-    phrases <- throwErrorT $ dlPhrases (config ^. login)
+dlPhrasesT :: Config -> Pipe -> IO ThreadId
+dlPhrasesT = forkIO … dlPhrasesT'
+
+dlPhrasesT' :: Config -> Pipe -> IO ()
+dlPhrasesT' config pipe = do
+    phrases <- throwErrorT $ dlPhrases (config ^. login) pipe
     putMVar (config ^. newPhrases) phrases
     threadDelay (60 * 1000 * 1000)
     
@@ -63,9 +67,13 @@ writeToJson phrases = do
 dbAccess :: Action IO Phrases
 dbAccess = do
     docs <- rest =<< DB.find (select [] "phrases")
+    liftIO $ putStrLn $ "Got some phrases?, length " ++ show (length docs)
     nodes <- mFromJust $ sortPhrases docs
+    liftIO $ putStrLn $ "Sorted phrases: " ++ show nodes
     let nodes' = topVotedNodes nodes
+    liftIO $ putStrLn $ "got top voted phrases: " ++ show nodes'
     let phrases = M.mapWithKey toPhrase nodes'
+    liftIO $ putStrLn $ "converted nodes to phrases: " ++ show phrases
     return $ M.mapMaybe id phrases
 
 
@@ -77,7 +85,9 @@ sortPhrases = foldM sortPhrase M.empty
                                 <*> DB.lookup "pLang" phrase
                                 <*> DB.lookup "nLang" phrase
                                 <*> DB.lookup "inUse" phrase
-    insertPhrase :: Map Text (Map Text (Map Text [Document])) -> Document -> Text -> PLang -> SLang -> Bool -> Map Text (Map Text (Map Text [Document]))
+    insertPhrase :: Map Text (Map Text (Map Text [Document])) -> Document ->
+                      Text -> PLang -> SLang -> Bool ->
+                      Map Text (Map Text (Map Text [Document]))
     insertPhrase map phrase node plang slang inUse = if not inUse then map else
         case M.lookup node map of
           Nothing -> M.insert node (M.singleton plang $ M.singleton slang [phrase]) map
@@ -89,7 +99,8 @@ sortPhrases = foldM sortPhrase M.empty
                   Nothing -> M.insert slang [phrase] pMap
                   Just nlPhrases -> M.insert slang (phrase:nlPhrases) pMap
 
-topVotedNodes :: Map Text (Map Text (Map Text [Document])) -> Map Text (Map Text (Map Text Document))
+topVotedNodes :: Map Text (Map Text (Map Text [Document]))
+                 -> Map Text (Map Text (Map Text Document))
 topVotedNodes = fmap.fmap.fmap $ maximumBy cmpVotes
   where
     cmpVotes d1 d2 = compare (votes d1) (votes d2)
@@ -102,6 +113,7 @@ toGenPhrase :: (Text -> c -> Map Text c -> a) -> Text -> (Text -> b -> Maybe c)
 toGenPhrase constr def subFunc name map =
     constr name <$> (subFunc def =<< (M.lookup def map)) <*>
                     (TV.sequence . M.mapWithKey subFunc . M.filterWithKey notDef $ map)
+-- sequence :: t (m a) -> m (t a)
   where
     notDef k _ = k /= def
 
@@ -113,15 +125,16 @@ toPPhrase = toGenPhrase PPhrase "en" toSPhrase
 
 toSPhrase :: Text -> Document -> Maybe SPhrase
 toSPhrase name doc =
-    let clauseDocs = DB.lookup "clauses" doc :: Maybe [Document]
+    let clauseDocs = DB.lookup "clauses" doc :: Maybe [DB.Value]
         clauses = mapM toClause =<< clauseDocs
     in SPhrase name <$> clauses
 
 
-toClause :: Document -> Maybe Clause
-toClause doc = case DB.lookup "condition" doc of
+toClause :: DB.Value -> Maybe Clause
+toClause (Doc doc) = case DB.lookup "condition" doc of
                  Nothing -> DefClause <$> DB.lookup "words" doc
                  (Just cond) -> CondClause <$> toClauseCond cond <*> DB.lookup "words" doc
+toClause (DB.Array vals) = DefClause <$> mapM DB.cast' vals
     
 toClauseCond :: Document -> Maybe ClauseCond
 toClauseCond doc =
