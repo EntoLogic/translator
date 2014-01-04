@@ -11,7 +11,7 @@ import Data.Maybe
 instance ToJSON OutputNode where
     toJSON (OutputNode node clauses indent loc) =
         object [ "node" .= node, "clauses" .= clauses
-               , "indent" .= indent, "location" .= loc]
+               , "indent" .= indent, "loc" .= loc]
 
 instance ToJSON OutputClause where
     toJSON (OCString s) = toJSON s

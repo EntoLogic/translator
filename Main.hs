@@ -17,14 +17,15 @@ import Data.Endian (swapEndian)
 import Data.Word (Word16(..))
 import qualified Data.ByteString.Char8 as L8
 
---main :: IO ()
---main = errorTToIO main'
+main :: IO ()
+main = errorTToIO main'
 
 
 main' :: ErrorT String IO ()
 main' = do
     config <- loadConfigs
     dbInfo <- dbConnect (config ^. login)
+    liftIO $ dlPhrasesT config
     liftIO $ loop config dbInfo
   where
     loop config dbInfo = do
@@ -42,9 +43,3 @@ updateConfig config = do
 
 accessDb :: Config -> DBInfo -> IO ()
 accessDb config pipe = errorTToIO $ dbInteract config pipe
-
-main = do
-    handle <- openFile "login_example.json" WriteMode
-    hLock handle
-    getLine
-    hUnlock handle
