@@ -13,12 +13,14 @@ import Data.Text
 import qualified Data.ByteString.Lazy as L
 import Data.Attoparsec.Number (Number(..))
 
+import Text.Read (readMaybe)
+
 import Control.Applicative ((<$>), (<*>), pure)
 import Control.Monad
 
 import Entologic.Ast
 import Entologic.Base
-
+import Entologic.Error
 
 
 readAstFile :: FilePath -> IO UAst
@@ -156,7 +158,7 @@ instance FromJSON PostfixOp where
 preOp = preOrPostOp PreOp
 postOp = preOrPostOp PostOp
 
-intLit obj = IntLit . read <$> obj .: "value"
+intLit obj = (fmap IntLit . mFromJust . readMaybe) =<< obj .: "value"
 
 
 instance FromJSON InfixOp where

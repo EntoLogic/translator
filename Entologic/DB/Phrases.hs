@@ -1,7 +1,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module Entologic.DB.Phrases where
 
 import Data.List
 import qualified Data.Map as M
@@ -17,6 +17,7 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.Error
 import Control.Lens ((^.))
+import Control.Concurrent
 
 import System.Environment
 import System.Posix.IO
@@ -25,20 +26,30 @@ import System.IO
 import Database.MongoDB hiding (lookup)
 import qualified Database.MongoDB as DB
 
+import Text.Read (readMaybe)
+
 import Entologic.DB
 import Entologic.Error
 import Entologic.Phrase
 import Entologic.Phrase.Json
 
-main' :: ErrorT String IO ()
-main' = do
-    login <- readJson "login.json"
+dlPhrases :: Login -> ErrorT String IO Phrases
+dlPhrases login = do
     pipe <- dbConnect login
-    phrases <- efFromRight (("Error: " ++) . show) =<< liftIO (access pipe master (login ^. db) dbAccess)
-    liftIO $ writeToJson phrases
+    phrases <- efFromRight (("Error: " ++) . show) =<<
+                    liftIO (access pipe master (login ^. db) dbAccess)
+    liftIO $ close pipe
+    return phrases
 
-main :: IO ()
-main = errorTToIO main'
+dlPhrasesT = forkIO . dlPhrasesT'
+
+dlPhrasesT' :: Config -> IO ()
+dlPhrasesT' config = do
+    phrases <- throwErrorT $ dlPhrases (config ^. login)
+    putMVar (config ^. newPhrases) phrases
+    threadDelay (60 * 1000 * 1000)
+    
+
 
 writeToJson :: Phrases -> IO ()
 writeToJson phrases = do
@@ -48,9 +59,6 @@ writeToJson phrases = do
     LBS.hPut file json
     hUnlock file
     hClose file
-
-mFromJust :: Monad m => Maybe a -> m a
-mFromJust = maybe (fail "") return
 
 dbAccess :: Action IO Phrases
 dbAccess = do
@@ -126,7 +134,7 @@ toClauseCond doc =
     reverse = case DB.lookup "reverse" doc of
                 (Just True) -> True
                 _ -> False
-    comp = read . T.unpack <$> DB.lookup "comparator" doc
+    comp = readMaybe =<< T.unpack <$> DB.lookup "comparator" doc
 
 {-
 toPhrase :: Text -> Map Text Document -> Maybe PPhrase

@@ -12,6 +12,12 @@ errFromJust :: (MonadError e m) => e -> Maybe a -> m a
 errFromJust _ (Just a) = return a
 errFromJust err Nothing = throwError err
 
+mFromJust :: Monad m => Maybe a -> m a
+mFromJust = msgFromJust ""
+
+msgFromJust :: Monad m => String -> Maybe a -> m a
+msgFromJust msg = maybe (fail msg) return
+
 eFromRight :: (MonadError e m) => Either e a -> m a
 eFromRight (Right a) = return a
 eFromRight (Left e) = throwError e
@@ -41,3 +47,9 @@ errorTToIO errorT = do
       Left err -> putStrLn $ "Error: " ++ show err
       Right _ -> return ()
 
+throwErrorT :: (Error e, Show e) => ErrorT e IO a -> IO a
+throwErrorT errorT = do
+    result <- runErrorT errorT
+    case result of
+      Left err -> return . error $ "Error: " ++ show err
+      Right r -> return r

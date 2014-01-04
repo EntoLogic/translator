@@ -3,14 +3,19 @@
 
 module Entologic.Phrase.Json where
 
-import Entologic.Phrase
 import Data.Aeson
 import qualified Data.Vector as V
 import qualified Data.Text as T
 import qualified Data.Map as M
 import qualified Data.ByteString.Lazy as L
+
 import Control.Applicative
 import Control.Lens hiding ((.=))
+
+import Text.Read (readMaybe)
+
+import Entologic.Phrase
+import Entologic.Error
 
 readPhrases :: FilePath -> IO Phrases
 readPhrases path = do
@@ -67,7 +72,7 @@ instance FromJSON ClauseCond where
                          <*> obj .: "value"
 
 instance FromJSON Ordering where
-    parseJSON (String s) = return . read $ T.unpack s
+    parseJSON (String s) = mFromJust . readMaybe $ T.unpack s
 
 s :: String -> String
 s = id

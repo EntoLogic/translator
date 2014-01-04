@@ -36,7 +36,7 @@ executable entologic-translator
                      , unix -any
 
 executable dlphrases
-  main-is:             Entologic/DB/Phrases.hs
+  main-is:             DlMain.hs
 
   build-depends:       base >=4.6
                      , transformers >=0.3

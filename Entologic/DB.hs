@@ -17,6 +17,7 @@ import Control.Applicative
 import Control.Monad.IO.Class
 import Control.Monad.Error
 import Control.Lens.TH
+import Control.Concurrent.MVar
 
 import Database.MongoDB as DB
 
@@ -33,6 +34,7 @@ type DBInfo = DB.Pipe
 data Config = Config { _login :: Login
                      , _astGens :: M.Map Text Text
                      , _phrases :: Phrases
+                     , _newPhrases :: MVar Phrases
                      }
 
 data Login = Login { _host :: String

@@ -27,6 +27,7 @@ import Control.Monad.Error
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Lens
+import Control.Concurrent.MVar
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy as L
@@ -48,7 +49,8 @@ loadConfigs = do
     let login' = login & (username %~ remEmptyTxt) . (password %~ remEmptyTxt)
     astGens <- readJson "astgens.json"
     phrases <- readJson "phrase.json"
-    return $ Config login astGens phrases
+    newPhrases <- liftIO newEmptyMVar
+    return $ Config login astGens phrases newPhrases
 
 dbInteract :: Config -> DBInfo -> ErrorT String IO ()
 dbInteract config pipe = do
