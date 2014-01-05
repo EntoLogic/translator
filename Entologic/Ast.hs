@@ -20,9 +20,9 @@ import Entologic.Output
 import qualified Data.Map as M
 
 import Control.Applicative
-import Control.Monad.Trans.State.Lazy(StateT(..), evalStateT)
+import Control.Monad.Trans.State.Lazy (StateT(..), evalStateT)
 import Control.Monad.State.Class
-import Control.Monad.Trans.Reader(ReaderT(..))
+import Control.Monad.Trans.Reader (ReaderT(..))
 import Control.Monad.Reader.Class
 import Control.Monad.Error.Class
 import Control.Monad.Error (ErrorT(..))

@@ -70,13 +70,10 @@ dbAccess = do
     docs <- rest =<< DB.find (select [] "phrases")
     liftIO $ putStrLn $ "Got some phrases?, length " ++ show (length docs)
     nodes <- mFromJust $ sortPhrases docs
-    liftIO $ putStrLn $ "Sorted phrases: " ++ show nodes
     let nodes' = topVotedNodes nodes
-    liftIO $ putStrLn $ "got top voted phrases: " ++ show nodes'
     let errPhrases = M.mapWithKey toPhrase nodes' :: M.Map Text (ErrorT String Identity Phrase)
     let (errs, phrases) = M.foldWithKey getError ([], M.empty) errPhrases
     liftIO $ outputErrs errs
-    liftIO $ putStrLn $ "converted nodes to phrases: " ++ show phrases
     return phrases
   where
     getError :: Text -> ErrorT String Identity Phrase -> ([String], M.Map Text Phrase) -> ([String], M.Map Text Phrase)

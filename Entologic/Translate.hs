@@ -277,6 +277,7 @@ instance AstNode VarRef where
 instance AstNode Type where
     translate = undefined
 
+
 runSubExpr :: AstNode n => n -> TL a -> TL a
 runSubExpr node = localS (sInSubExpr .~ True <<< sPrevExprType .~ name node)
 
@@ -304,8 +305,6 @@ defTrans node area vars = do
                                         insertClauses clauses' vars
       Nothing -> webTranslate =<< local english (translate (node, area))
         
-
-
 
 instance AstNode InfixOp where
     name node = fromJust $ M.lookup node names
