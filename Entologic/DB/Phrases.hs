@@ -16,6 +16,7 @@ import Data.Aeson
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Error
+import Control.Monad.Identity
 import Control.Lens ((^.))
 import Control.Concurrent
 
@@ -72,10 +73,23 @@ dbAccess = do
     liftIO $ putStrLn $ "Sorted phrases: " ++ show nodes
     let nodes' = topVotedNodes nodes
     liftIO $ putStrLn $ "got top voted phrases: " ++ show nodes'
-    phrases <- liftIO . throwErrorT . TV.sequence $ (M.mapWithKey toPhrase nodes' :: M.Map Text (ErrorT String IO Phrase))
+    let errPhrases = M.mapWithKey toPhrase nodes' :: M.Map Text (ErrorT String Identity Phrase)
+    let (errs, phrases) = M.foldWithKey getError ([], M.empty) errPhrases
+    liftIO $ outputErrs errs
     liftIO $ putStrLn $ "converted nodes to phrases: " ++ show phrases
---    return $ M.mapMaybe id phrases
     return phrases
+  where
+    getError :: Text -> ErrorT String Identity Phrase -> ([String], M.Map Text Phrase) -> ([String], M.Map Text Phrase)
+    getError k errT (errs, map) =
+      case runIdentity . runErrorT $ errT of
+        Left err -> (err:errs, map)
+        Right phrase -> (errs, M.insert k phrase map)
+
+    outputErrs [] = return ()
+    outputErrs list@(x:_) = hPutStrLn stderr "Errors reading phrases:" >>
+                            mapM_ (hPutStrLn stderr) list
+
+
 
 
 sortPhrases :: [Document] -> Maybe (Map Text (Map Text (Map Text [Document])))
@@ -112,7 +126,7 @@ topVotedNodes = fmap.fmap.fmap $ maximumBy cmpVotes
 toGenPhrase :: (Monad m, Functor m) => (Text -> c -> Map Text c -> a) -> Text -> (Text -> b -> ErrorT String m c)
                                               -> Text -> Map Text b -> ErrorT String m a
 toGenPhrase constr def subFunc name map =
-    constr name <$> (subFunc def =<< (errFromJust "default (p/s)phrase" $ M.lookup def map)) <*>
+    constr name <$> (subFunc def =<< (errFromJust "Missing default (p/s)phrase" $ M.lookup def map)) <*>
                     (TV.sequence . M.mapWithKey subFunc . M.filterWithKey notDef $ map)
 -- sequence :: t (m a) -> m (t a)
   where
@@ -127,7 +141,7 @@ toPPhrase = toGenPhrase PPhrase "en" toSPhrase
 toSPhrase :: (Functor m, Monad m) => Text -> Document -> ErrorT String m SPhrase
 toSPhrase name doc =
     let clauseDocs = DB.lookup "clauses" doc :: Maybe [DB.Value]
-        clauses = mapM toClause =<< errFromJust "clauses for sphrase" clauseDocs
+        clauses = mapM toClause =<< errFromJust "Missing clauses for sphrase" clauseDocs
     in SPhrase name <$> clauses
 
 
@@ -140,7 +154,7 @@ toClause (DB.Array vals) = DefClause <$> mapM (errFromJust "Can't convert DB.Val
 toClauseCond :: (Functor m, Monad m) => Document -> ErrorT String m ClauseCond
 toClauseCond doc =
     case DB.lookup "conditionType" doc :: Maybe Text of
-      (Just "presence") -> Present reverse <$> errFromJust "presence clause attribute" (DB.lookup "attribute" doc)
+      (Just "presence") -> Present reverse <$> errFromJust "Missing presence clause attribute" (DB.lookup "attribute" doc)
       (Just "comparison") -> Comp reverse <$> comp <*>
                 DB.lookup "attribute" doc <*> DB.lookup "compared_with" doc
       _ -> throwError "Missing or invalid clause type"
@@ -148,7 +162,7 @@ toClauseCond doc =
     reverse = case DB.lookup "reverse" doc of
                 (Just True) -> True
                 _ -> False
-    comp = errFromJust "comparison for comparison phrase" . readMaybe =<< T.unpack <$> DB.lookup "comparator" doc
+    comp = errFromJust "Missing comparison for comparison phrase" . readMaybe =<< T.unpack <$> DB.lookup "comparator" doc
 
 {-
 toPhrase :: Text -> Map Text Document -> Maybe PPhrase
