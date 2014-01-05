@@ -72,9 +72,10 @@ dbAccess = do
     liftIO $ putStrLn $ "Sorted phrases: " ++ show nodes
     let nodes' = topVotedNodes nodes
     liftIO $ putStrLn $ "got top voted phrases: " ++ show nodes'
-    let phrases = M.mapWithKey toPhrase nodes'
+    phrases <- liftIO . throwErrorT . TV.sequence $ (M.mapWithKey toPhrase nodes' :: M.Map Text (ErrorT String IO Phrase))
     liftIO $ putStrLn $ "converted nodes to phrases: " ++ show phrases
-    return $ M.mapMaybe id phrases
+--    return $ M.mapMaybe id phrases
+    return phrases
 
 
 sortPhrases :: [Document] -> Maybe (Map Text (Map Text (Map Text [Document])))
@@ -108,46 +109,46 @@ topVotedNodes = fmap.fmap.fmap $ maximumBy cmpVotes
     votes phrase = DB.at "voteCache" phrase
 
 -- a = Phrase; b = Map Text Document; c = PPhrase
-toGenPhrase :: (Text -> c -> Map Text c -> a) -> Text -> (Text -> b -> Maybe c)
-                                              -> Text -> Map Text b -> Maybe a
+toGenPhrase :: (Monad m, Functor m) => (Text -> c -> Map Text c -> a) -> Text -> (Text -> b -> ErrorT String m c)
+                                              -> Text -> Map Text b -> ErrorT String m a
 toGenPhrase constr def subFunc name map =
-    constr name <$> (subFunc def =<< (M.lookup def map)) <*>
+    constr name <$> (subFunc def =<< (errFromJust "default (p/s)phrase" $ M.lookup def map)) <*>
                     (TV.sequence . M.mapWithKey subFunc . M.filterWithKey notDef $ map)
 -- sequence :: t (m a) -> m (t a)
   where
     notDef k _ = k /= def
 
-toPhrase :: Text -> Map Text (Map Text Document) -> Maybe Phrase
+toPhrase :: (Functor m, Monad m) => Text -> Map Text (Map Text Document) -> ErrorT String m Phrase
 toPhrase = toGenPhrase Phrase "default" toPPhrase
 
-toPPhrase :: Text -> Map Text Document -> Maybe PPhrase
+toPPhrase :: (Functor m, Monad m) => Text -> Map Text Document -> ErrorT String m PPhrase
 toPPhrase = toGenPhrase PPhrase "en" toSPhrase
 
-toSPhrase :: Text -> Document -> Maybe SPhrase
+toSPhrase :: (Functor m, Monad m) => Text -> Document -> ErrorT String m SPhrase
 toSPhrase name doc =
     let clauseDocs = DB.lookup "clauses" doc :: Maybe [DB.Value]
-        clauses = mapM toClause =<< clauseDocs
+        clauses = mapM toClause =<< errFromJust "clauses for sphrase" clauseDocs
     in SPhrase name <$> clauses
 
 
-toClause :: DB.Value -> Maybe Clause
+toClause :: (Functor m, Monad m) => DB.Value -> ErrorT String m Clause
 toClause (Doc doc) = case DB.lookup "condition" doc of
                  Nothing -> DefClause <$> DB.lookup "words" doc
                  (Just cond) -> CondClause <$> toClauseCond cond <*> DB.lookup "words" doc
-toClause (DB.Array vals) = DefClause <$> mapM DB.cast' vals
+toClause (DB.Array vals) = DefClause <$> mapM (errFromJust "Can't convert DB.Value to Text" . DB.cast') vals
     
-toClauseCond :: Document -> Maybe ClauseCond
+toClauseCond :: (Functor m, Monad m) => Document -> ErrorT String m ClauseCond
 toClauseCond doc =
     case DB.lookup "conditionType" doc :: Maybe Text of
-      (Just "presence") -> Present reverse <$> DB.lookup "attribute" doc
+      (Just "presence") -> Present reverse <$> errFromJust "presence clause attribute" (DB.lookup "attribute" doc)
       (Just "comparison") -> Comp reverse <$> comp <*>
                 DB.lookup "attribute" doc <*> DB.lookup "compared_with" doc
-      _ -> Nothing
+      _ -> throwError "Missing or invalid clause type"
   where
     reverse = case DB.lookup "reverse" doc of
                 (Just True) -> True
                 _ -> False
-    comp = readMaybe =<< T.unpack <$> DB.lookup "comparator" doc
+    comp = errFromJust "comparison for comparison phrase" . readMaybe =<< T.unpack <$> DB.lookup "comparator" doc
 
 {-
 toPhrase :: Text -> Map Text Document -> Maybe PPhrase
