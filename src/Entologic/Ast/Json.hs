@@ -75,11 +75,11 @@ instance FromJSON ProgramEntry where
 instance FromJSON Function where
     parseJSON (Object obj) = do
 --       (String "FuncDecl") <- obj .: "node"
-       Function <$> obj .: "modifiers"
+       Function <$> obj .:* "modifiers"
                 <*> obj .:? "returnType"
                 <*> obj .: "name"
-                <*> obj .: "arguments"
-                <*> obj .: "body"
+                <*> obj .:* "arguments"
+                <*> obj .:* "body"
 
 instance FromJSON Type where
     parseJSON (String s) = return $ StringT s
