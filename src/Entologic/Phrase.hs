@@ -34,6 +34,7 @@ import qualified Data.Text as T
 import Data.Text (Text(..))
 import qualified Data.Map as M
 import Data.Maybe
+import Data.Semigroup ((<>))
 
 import Control.Monad.Reader.Class
 import Control.Monad.Error.Class
@@ -94,7 +95,8 @@ getClauses node = do
       (Just (SPhrase _ clauses id)) -> return $ Just (clauses, id)
       Nothing ->
         case sl of
-          "en" -> throwError $ "clauses for " ++ T.unpack node
+          "en" -> throwError $ "Missing phrase for "
+                               ++ T.unpack (pl <> ":" <> sl <> ":" <>node)
           _ -> return Nothing
     
 
