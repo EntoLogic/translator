@@ -26,6 +26,7 @@ library
                    Entologic.Translate
                    Entologic.DB.Translations
                    Entologic.DB.Phrases
+                   Entologic.DB
 
   build-depends:       base >=4.6
                      , transformers >=0.3
