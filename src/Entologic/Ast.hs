@@ -9,7 +9,67 @@
              FlexibleInstances,
              OverloadedStrings #-}
 
-module Entologic.Ast where
+module Entologic.Ast
+    ( UAst(..)
+    , AstMeta(..)
+    , AstNode(..)
+    , UK(..)
+    , AN
+    , Text'
+    , String'
+    , Program(..)
+    , ProgramEntry(..)
+    , Import(..)
+    , Import'
+    , Modifier(..)
+    , Modifier'
+    , Modifiers
+    , modifiers
+    , Type(..)
+    , Type'
+    , KWType(..)
+    , TypeDeclaration(..)
+    , TypeDeclaration'
+    , Class(..)
+    , Class'
+    , Member(..)
+    , Member'
+    , Field(..)
+    , Field'
+    , Function(..)
+    , Function'
+    , ParamDecl(..)
+    , ParamDecl'
+    , Body(..)
+    , Body'
+    , Statement(..)
+    , Statement'
+    , Case(..)
+    , Case'
+    , ForInit(..)
+    , ForInit'
+    , OneVarDecl(..)
+    , OneVarDecl'
+    , VarRef(..)
+    , VarRef'
+    , InfixOp(..)
+    , InfixOp'
+    , infixOps
+    , PrefixOp(..)
+    , PrefixOp'
+    , PostfixOp(..)
+    , PostfixOp'
+    , TernaryOp(..)
+    , TernaryOp'
+    , Expression(..)
+    , Expression'
+    , GenericParam(..)
+    , GenericParam'
+    , GenericParamDecl(..)
+    , GenericParamDecl'
+    , Area(..)
+    , Location(..)
+    ) where
 
 
 import Data.Text
@@ -64,7 +124,18 @@ data ProgramEntry = PEFunc Function
                   deriving (Show)
 
 data Program = Program { pEntries :: [ProgramEntry'] }
+             | CompilationUnit { cuPkg :: Maybe [Text']
+                               , cuImports :: [Import']
+                               , cuTypeDecls :: [TypeDeclaration']
+                               }
                deriving (Show)
+
+type Import' = AN Import
+data Import = Import [Text]
+            | ImportAll [Text]
+            | ImportStatic [Text]
+            | ImportStaticAll [Text]
+              deriving (Show, Ord, Eq)
 
 type Modifiers = [Modifier']
 type Modifier' = AN Modifier
@@ -79,6 +150,7 @@ data Modifier = Public
               | Volatile
               | Synchronized
               | StrictFP
+              | Native
                 deriving (Show, Ord, Eq)
 
 modifiers :: [(Text, Modifier)]
@@ -86,7 +158,8 @@ modifiers =
     [("public", Public), ("private", Private) , ("protected", Protected)
     , ("static", Static), ("const", Const), ("final", Final)
     , ("abstract", Abstract), ("transient", Transient), ("volatile", Volatile)
-    , ("synchronized", Synchronized), ("strictfp", StrictFP)]
+    , ("synchronized", Synchronized), ("strictfp", StrictFP)
+    , ("native", Native)]
 
 data KWType = Int
             | Long
@@ -100,7 +173,10 @@ data KWType = Int
               deriving (Show, Ord, Eq)
 
 type Type' = AN Type
-data Type = StringT Text
+            -- ClassType: a list of (dot-separated) parts, some of which can be
+            -- types with generic parameters
+data Type = ClassType [(Text', [GenericParam])]
+          | StringT Text
           | ArrayT Type'
           | KeywordT KWType
 --          | forall a. (ASTNode a, Show a) => LSType a
@@ -113,21 +189,38 @@ data LSAny = forall a. (AstNode a, Show a) => LSAny a
 instance Show LSAny where
     show _ = "LSAny"
 
+type TypeDeclaration' = AN TypeDeclaration
+data TypeDeclaration = TDCls Class
+                     | TDEnum EnumDecl
+                     | TDInterface Interface
+                     | TDAnnotation AnnotationDecl
+                       deriving (Show, Ord, Eq)
+
+data Interface = Interface
+                 deriving (Show, Ord, Eq)
+data EnumDecl = EnumDecl
+                deriving (Show, Ord, Eq)
+data AnnotationDecl = AnnotationDecl
+                      deriving (Show, Ord, Eq)
+
 type Class' = AN Class
-data Class = Class { cName :: String'
+data Class = Class { cMods :: Modifiers
+                   , cName :: String'
+                   , cGericParams :: [GenericParamDecl]
                    , cSuperCls :: Maybe Type'
+                   , cInterfaces :: [Type]
                    , cMembers :: [Member]
                    }
-             deriving (Show)
+             deriving (Show, Ord, Eq)
 
 type Member' = AN Member
 data Member = MFunc Function'
             | MField Field'
-              deriving (Show)
+              deriving (Show, Ord, Eq)
 
 type Field' = AN Field
 data Field = Field
-             deriving (Show)
+             deriving (Show, Ord, Eq)
 
 type Function' = AN Function
 data Function = Function { fMods :: Modifiers
@@ -136,7 +229,7 @@ data Function = Function { fMods :: Modifiers
                          , fParams :: [ParamDecl']
                          , fBody :: [Statement']
                          }
-                deriving (Show)
+                deriving (Show, Ord, Eq)
 
 type ParamDecl' = AN ParamDecl
 data ParamDecl = ParamDecl { pName :: Text'

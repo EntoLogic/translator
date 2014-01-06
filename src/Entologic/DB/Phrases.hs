@@ -171,9 +171,9 @@ toClauseCond doc =
     case DB.lookup "conditionType" doc :: Maybe Text of
       (Just "presence") ->
         Present reverse <$> errFromJust "Missing presence clause attribute"
-                                        (DB.lookup "attribute" doc)
+                                        (DB.lookup "nodeAttribute" doc)
       (Just "comparison") -> Comp reverse <$> comp <*>
-                DB.lookup "attribute" doc <*> DB.lookup "compared_with" doc
+                DB.lookup "nodeAttribute" doc <*> DB.lookup "compared_with" doc
       _ -> throwError "Missing or invalid clause type"
   where
     reverse = case DB.lookup "reverse" doc of

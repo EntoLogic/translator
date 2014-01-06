@@ -110,7 +110,8 @@ dbAccess config = do
 parseCode :: M.Map Text Text -> Text -> L.ByteString -> ErrorT String IO UAst
 parseCode astGens pLang code = do
     liftIO $ putStr "About to parse code: " >> L8.putStrLn code
-    gen <- eFromJust $ M.lookup pLang astGens
+    gen <- errFromJust ("Missing parser for language " ++ T.unpack pLang) $
+                       M.lookup pLang astGens
     liftIO $ T.IO.putStrLn $ " parsing code with " <> gen
     let cp = CreateProcess
                { cmdspec = RawCommand (T.unpack gen) [], cwd = Nothing

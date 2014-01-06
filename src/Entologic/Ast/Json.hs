@@ -62,6 +62,19 @@ instance FromJSON AstMeta where
 
 instance FromJSON Program where
     parseJSON (Array v) = Program <$> mapM parseJSON (V.toList v)
+    parseJSON (Object obj) = do
+        node <- obj .: "node"
+        case s node of
+          "Program" -> parseJSON =<< obj .: "contents"
+          "CompilationUnit" ->
+            CompilationUnit <$> obj .: "package"
+                            <*> obj .: "imports"
+                            <*> obj .: "declarations"
+instance FromJSON Import where
+    parseJSON = undefined
+
+instance FromJSON TypeDeclaration where
+    parseJSON = undefined
 
 instance FromJSON ProgramEntry where
     parseJSON o@(Object map) = do

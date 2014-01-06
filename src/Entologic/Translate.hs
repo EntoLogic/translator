@@ -237,7 +237,12 @@ instance AstNode Function where
 
 instance AstNode ParamDecl where
     name = const "ParamDecl"
-    translate' = undefined
+    translate' (node@(ParamDecl name typ def), area) = do
+        typ' <- maybeTranslate typ
+        def' <- maybeTranslate def
+        let vars = M.fromList [ ("name", AV name), ("type", AV typ')
+                              , ("default", AV def') ]
+        defTrans node area vars
 
 instance AstNode Statement where
     name (StmExpr _) = "StmExpr"
@@ -296,7 +301,9 @@ instance AstNode Expression where
         let rse = runSubExpr node
         var <- translate varRef
         expr <- rse $ translate expression
-        let vars = M.fromList [("variable", AV var), ("expression", AV expr)]
+        subexpr <- inSubExpr
+        let vars = M.fromList [ ("variable", AV var), ("expression", AV expr)
+                              , ("subexpression", AV subexpr)]
         defTrans node area vars
 
     translate' (node@(OpAssign varRef infixOp expression), area) = do
@@ -304,8 +311,9 @@ instance AstNode Expression where
         var <- rse $ translate varRef
         op <- rse $ translate infixOp
         expr <- rse $ translate expression
-        let vars = M.fromList [("variable", AV var), ("expression", AV expr),
-                               ("op", AV op)]
+        subexpr <- inSubExpr
+        let vars = M.fromList [ ("variable", AV var), ("expression", AV expr)
+                              , ("op", AV op), ("subexpression", AV subexpr)]
         defTrans node area vars
 
     translate' (node@(BinOp op lexpr rexpr), area) = do
@@ -313,8 +321,10 @@ instance AstNode Expression where
         tOp <- translate op
         left <- rse $ translate lexpr
         right <- rse $ translate rexpr
-        let vars = M.fromList [("operation", AV tOp)
-                    , ("left", AV left), ("right", AV right)]
+        subexpr <- inSubExpr
+        let vars = M.fromList [ ("operation", AV tOp), ("left", AV left)
+                              , ("right", AV right)
+                              , ("subexpression", AV subexpr)]
         defTrans node area vars
 
     translate' (node@(IntLit val), area) = do
@@ -354,16 +364,20 @@ instance AstNode Expression where
         obj <- rse $ translate object
         gParams <- rse $ mapM translate genericParams
         args <- rse $ mapM translate arguments
+        subexpr <- inSubExpr
         let vars = M.fromList [("object", AV obj), ("methodName", AV method)
-                    , ("genericParameters", AV gParams), ("arguments", AV args)]
+                    , ("genericParameters", AV gParams), ("arguments", AV args)
+                    , ("subexpression", AV subexpr)]
         defTrans node area vars
 
     translate' (node@(FunctionCall function genericParams arguments), area) = do
         let rse = runSubExpr node
         gParams <- rse $ mapM translate genericParams
         args <- rse $ mapM translate arguments
+        subexpr <- inSubExpr
         let vars = M.fromList [("functionName", AV function)
-                    , ("genericParameters", AV gParams), ("arguments", AV args)]
+                    , ("genericParameters", AV gParams), ("arguments", AV args)
+                    , ("subexpression", AV subexpr)]
         defTrans node area vars
 
 
