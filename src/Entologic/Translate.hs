@@ -89,10 +89,12 @@ instance Variable a => ShowOrVariable a where
 -}
 
 
+{-
 instance Variable a => Variable [a] where
     present = (>0) . length
     comparison = length
     inPhrase list = (listify' =<< concat <$> mapM inPhrase list)
+-}
 
 {-
 instance Show a => Variable [a] where
@@ -226,10 +228,10 @@ maybeTranslate = TV.sequence . fmap translate
 instance AstNode Function where
     name = const "FuncDecl"
     translate' (node@(Function modifiers typ name arguments body), area) = do
-        mods <- mapM translate modifiers
+        mods <- concat <$> mapM translate modifiers
         typ' <- maybeTranslate typ
-        args <- mapM translate arguments
-        body' <- mapM translate body
+        args <- concat <$> mapM translate arguments
+        body' <- concat <$> mapM translate body
         let vars = M.fromList [ ("modifiers", AV mods), ("returnType", AV typ')
                               , ("name", AV name), ("arguments", AV args)
                               , ("body", AV body') ]
@@ -259,7 +261,7 @@ instance AstNode Statement where
     translate' (StmExpr e, area) = translate' (e, area)
 
     translate' (node@(VarDecl modifiers typ name initializer), area) = do
-        mods <- mapM translate modifiers
+        mods <- concat <$> mapM translate modifiers
         typ' <- maybeTranslate typ
         init <- runSubExpr node . TV.sequence $ translate <$> initializer
         let vars = M.fromList
@@ -268,9 +270,9 @@ instance AstNode Statement where
         defTrans node area vars
 
     translate' (node@(MultiVarDecl modifiers typ decls), area) = do
-        mods <- mapM translate modifiers
+        mods <- concat <$> mapM translate modifiers
         typ' <- maybeTranslate typ
-        decls <- mapM translate decls
+        decls <- concat <$> mapM translate decls
         let vars = M.fromList
                      [("modifiers", AV mods), ("type", AV typ')
                      , ("declarations", AV decls)]
@@ -352,7 +354,7 @@ instance AstNode Expression where
     translate' (node@(InstanceConstruction typ arguments), area) = do
         let rse = runSubExpr node
         typ' <- rse $ translate typ
-        args <- rse $ mapM translate arguments
+        args <- rse $ concat <$> mapM translate arguments
         subexpr <- inSubExpr
         let vars = M.fromList [("type", AV typ'), ("arguments", AV args)
                               , ("subexpression", AV subexpr)]
@@ -362,8 +364,8 @@ instance AstNode Expression where
       do
         let rse = runSubExpr node
         obj <- rse $ translate object
-        gParams <- rse $ mapM translate genericParams
-        args <- rse $ mapM translate arguments
+        gParams <- rse $ concat <$> mapM translate genericParams
+        args <- rse $ concat <$> mapM translate arguments
         subexpr <- inSubExpr
         let vars = M.fromList [("object", AV obj), ("methodName", AV method)
                     , ("genericParameters", AV gParams), ("arguments", AV args)
@@ -372,8 +374,8 @@ instance AstNode Expression where
 
     translate' (node@(FunctionCall function genericParams arguments), area) = do
         let rse = runSubExpr node
-        gParams <- rse $ mapM translate genericParams
-        args <- rse $ mapM translate arguments
+        gParams <- rse $ concat <$> mapM translate genericParams
+        args <- rse $ concat <$> mapM translate arguments
         subexpr <- inSubExpr
         let vars = M.fromList [("functionName", AV function)
                     , ("genericParameters", AV gParams), ("arguments", AV args)
