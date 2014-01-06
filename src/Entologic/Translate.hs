@@ -63,7 +63,9 @@ localS mod action = do
     put before
     return a
 
-
+areaUseful :: Area -> Bool
+areaUseful (Area Nothing Nothing) = False
+areaUseful _ = True
 
 instance Variable Bool where
     present = id
@@ -114,7 +116,10 @@ instance Variable Text' where
     comparison (t, _) = comparison t
     inPhrase (t, a) = case t of
         Unknown err -> return [OCString err]
-        Node t' -> return . (:[]) . OCNode $ OutputNode "" [OCString t']
+        Node t' ->
+            if not $ areaUseful a
+            then return [OCString t']
+            else return . (:[]) . OCNode $ OutputNode "Identifier" [OCString t']
                                                         False a ""
 
 instance Variable OutputClause where 
