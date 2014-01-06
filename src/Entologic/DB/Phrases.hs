@@ -76,7 +76,6 @@ dbAccess = do
                                                                 Identity Phrase)
     let (errs, phrases) = M.foldWithKey getError ([], M.empty) errPhrases
     liftIO $ outputErrs errs
-    liftIO $ putStrLn $ "Downloaded phrases: " ++ show phrases
     return phrases
   where
     getError :: Text -> ErrorT String Identity Phrase
