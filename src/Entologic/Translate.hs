@@ -194,12 +194,17 @@ instance AstNode a => AstNode (Maybe a) where
 
 instance AstNode Program where
     name = const "Program"
+    {-
     translate' (node, area) = do
-        clauses <- getClauses "Program" 
         contents <- OCNodes . concat <$>
                         (mapM (fmap (fmap ocNode) . translate) $ pEntries node)
         let vars = M.fromList [("contents", AV contents)]
         defTrans node area vars
+    -}
+    translate' (node, area) = do
+        contents <- mapM translate $ pEntries node
+        return $ concat contents
+        -- TODO
 
 instance AstNode ProgramEntry where
     name (PEStm s) = name s
