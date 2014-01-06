@@ -368,6 +368,9 @@ instance AstNode Expression where
 
 
 instance AstNode VarRef where
+    NAME(VarAccess)
+    NAME(FieldAccess)
+
     translate' (node@(VarAccess var), area) = do
         let vars = M.fromList [("varName", AV var)]
         defTrans node area vars
