@@ -21,6 +21,8 @@ import Control.Lens.TH
 import Data.Text
 import qualified Data.Map as M
 
+import qualified Database.MongoDB as DB
+
 type PLang = Text
 type SLang = Text
 
@@ -41,6 +43,7 @@ data PPhrase = PPhrase { _ppLang :: Text
 
 data SPhrase = SPhrase { _spLang :: Text
                        , _spClauses :: [Clause]
+                       , _spId :: DB.ObjectId
                        }
                deriving (Ord, Eq, Show)
 

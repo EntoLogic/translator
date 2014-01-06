@@ -9,9 +9,9 @@ import Control.Applicative
 import Data.Maybe
 
 instance ToJSON OutputNode where
-    toJSON (OutputNode node clauses indent loc) =
+    toJSON (OutputNode node clauses indent loc src) =
         object [ "node" .= node, "clauses" .= clauses
-               , "indent" .= indent, "loc" .= loc]
+               , "indent" .= indent, "loc" .= loc, "source" .= src ]
 
 instance ToJSON OutputClause where
     toJSON (OCString s) = toJSON s

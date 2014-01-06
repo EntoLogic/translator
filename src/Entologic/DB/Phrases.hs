@@ -32,7 +32,6 @@ import Text.Read (readMaybe)
 import Entologic.DB
 import Entologic.Error
 import Entologic.Phrase
-import Entologic.Phrase.Json
 
 dlPhrases :: Login -> Pipe -> ErrorT String IO Phrases
 dlPhrases login pipe = do
@@ -55,7 +54,7 @@ dlPhrasesT' config pipe = do
     threadDelay (60 * 1000 * 1000)
     
 
-
+{-
 writeToJson :: Phrases -> IO ()
 writeToJson phrases = do
     let json = encode phrases
@@ -64,6 +63,7 @@ writeToJson phrases = do
     LBS.hPut file json
     hUnlock file
     hClose file
+-}
 
 dbAccess :: Action IO Phrases
 dbAccess = do
@@ -71,12 +71,15 @@ dbAccess = do
     liftIO $ putStrLn $ "Got some phrases?, length " ++ show (length docs)
     nodes <- mFromJust $ sortPhrases docs
     let nodes' = topVotedNodes nodes
-    let errPhrases = M.mapWithKey toPhrase nodes' :: M.Map Text (ErrorT String Identity Phrase)
+    let errPhrases = M.mapWithKey toPhrase nodes' :: M.Map Text (ErrorT String
+                                                                Identity Phrase)
     let (errs, phrases) = M.foldWithKey getError ([], M.empty) errPhrases
     liftIO $ outputErrs errs
     return phrases
   where
-    getError :: Text -> ErrorT String Identity Phrase -> ([String], M.Map Text Phrase) -> ([String], M.Map Text Phrase)
+    getError :: Text -> ErrorT String Identity Phrase
+                     -> ([String], M.Map Text Phrase)
+                     -> ([String], M.Map Text Phrase)
     getError k errT (errs, map) =
       case runIdentity . runErrorT $ errT of
         Left err -> (err:errs, map)
@@ -102,7 +105,8 @@ sortPhrases = foldM sortPhrase M.empty
                       Map Text (Map Text (Map Text [Document]))
     insertPhrase map phrase node plang slang inUse = if not inUse then map else
         case M.lookup node map of
-          Nothing -> M.insert node (M.singleton plang $ M.singleton slang [phrase]) map
+          Nothing -> M.insert node
+                        (M.singleton plang $ M.singleton slang [phrase]) map
           Just nMap ->
             flip (M.insert node) map $ case M.lookup plang nMap of
               Nothing -> M.insert plang (M.singleton slang [phrase]) nMap
@@ -120,38 +124,52 @@ topVotedNodes = fmap.fmap.fmap $ maximumBy cmpVotes
     votes phrase = DB.at "voteCache" phrase
 
 -- a = Phrase; b = Map Text Document; c = PPhrase
-toGenPhrase :: (Monad m, Functor m) => (Text -> c -> Map Text c -> a) -> Text -> (Text -> b -> ErrorT String m c)
-                                              -> Text -> Map Text b -> ErrorT String m a
+toGenPhrase :: (Monad m, Functor m) => (Text -> c -> Map Text c -> a) -> Text
+                                          -> (Text -> b -> ErrorT String m c)
+                                          -> Text -> Map Text b
+                                          -> ErrorT String m a
 toGenPhrase constr def subFunc name map =
-    constr name <$> (subFunc def =<< (errFromJust "Missing default (p/s)phrase" $ M.lookup def map)) <*>
-                    (TV.sequence . M.mapWithKey subFunc . M.filterWithKey notDef $ map)
+    constr name <$> (subFunc def =<< (errFromJust "Missing default (p/s)phrase"
+                        $ M.lookup def map))
+                <*> (TV.sequence . M.mapWithKey subFunc . M.filterWithKey notDef
+                        $ map)
 -- sequence :: t (m a) -> m (t a)
   where
     notDef k _ = k /= def
 
-toPhrase :: (Functor m, Monad m) => Text -> Map Text (Map Text Document) -> ErrorT String m Phrase
+toPhrase :: (Functor m, Monad m) => Text -> Map Text (Map Text Document)
+                                         -> ErrorT String m Phrase
 toPhrase = toGenPhrase Phrase "default" toPPhrase
 
-toPPhrase :: (Functor m, Monad m) => Text -> Map Text Document -> ErrorT String m PPhrase
+toPPhrase :: (Functor m, Monad m) => Text -> Map Text Document
+                                          -> ErrorT String m PPhrase
 toPPhrase = toGenPhrase PPhrase "en" toSPhrase
 
 toSPhrase :: (Functor m, Monad m) => Text -> Document -> ErrorT String m SPhrase
 toSPhrase name doc =
     let clauseDocs = DB.lookup "clauses" doc :: Maybe [DB.Value]
-        clauses = mapM toClause =<< errFromJust "Missing clauses for sphrase" clauseDocs
-    in SPhrase name <$> clauses
+        clauses = mapM toClause =<< errFromJust "Missing clauses for sphrase"
+                                                clauseDocs
+        id = errFromJust "Missing phrase object id" $ DB.lookup "_id" doc
+    in SPhrase name <$> clauses <*> id
 
 
 toClause :: (Functor m, Monad m) => DB.Value -> ErrorT String m Clause
-toClause (Doc doc) = case DB.lookup "condition" doc of
+toClause (Doc doc) = case DB.look "condition" doc of
                  Nothing -> DefClause <$> DB.lookup "words" doc
-                 (Just cond) -> CondClause <$> toClauseCond cond <*> DB.lookup "words" doc
-toClause (DB.Array vals) = DefClause <$> mapM (errFromJust "Can't convert DB.Value to Text" . DB.cast') vals
+                 (Just DB.Null) -> DefClause <$> DB.lookup "words" doc
+                 (Just (Doc cond)) -> CondClause <$> toClauseCond cond
+                                                 <*> DB.lookup "words" doc
+toClause (DB.Array vals) =
+    DefClause <$> mapM (errFromJust "Can't convert DB.Value to Text" . DB.cast')
+                       vals
     
 toClauseCond :: (Functor m, Monad m) => Document -> ErrorT String m ClauseCond
 toClauseCond doc =
     case DB.lookup "conditionType" doc :: Maybe Text of
-      (Just "presence") -> Present reverse <$> errFromJust "Missing presence clause attribute" (DB.lookup "attribute" doc)
+      (Just "presence") ->
+        Present reverse <$> errFromJust "Missing presence clause attribute"
+                                        (DB.lookup "attribute" doc)
       (Just "comparison") -> Comp reverse <$> comp <*>
                 DB.lookup "attribute" doc <*> DB.lookup "compared_with" doc
       _ -> throwError "Missing or invalid clause type"
@@ -159,7 +177,8 @@ toClauseCond doc =
     reverse = case DB.lookup "reverse" doc of
                 (Just True) -> True
                 _ -> False
-    comp = errFromJust "Missing comparison for comparison phrase" . readMaybe =<< T.unpack <$> DB.lookup "comparator" doc
+    comp = errFromJust "Missing comparison for comparison phrase" . readMaybe
+               =<< T.unpack <$> DB.lookup "comparator" doc
 
 {-
 toPhrase :: Text -> Map Text Document -> Maybe PPhrase

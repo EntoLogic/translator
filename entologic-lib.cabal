@@ -21,7 +21,6 @@ library
                    Entologic.Output
                    Entologic.Output.Json
                    Entologic.Phrase
-                   Entologic.Phrase.Json
                    Entologic.Base
                    Entologic.Error
                    Entologic.Translate

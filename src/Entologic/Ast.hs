@@ -11,15 +11,12 @@
 
 module Entologic.Ast where
 
+
 import Data.Text
-import Control.Monad.IO.Class
-
-import Entologic.Base
-import Entologic.Output
-
+import Data.String (IsString(..))
 import qualified Data.Map as M
 
-import Control.Applicative
+import Control.Applicative hiding (Const(..))
 import Control.Monad.Trans.State.Lazy (StateT(..), evalStateT)
 import Control.Monad.State.Class
 import Control.Monad.Trans.Reader (ReaderT(..))
@@ -27,7 +24,11 @@ import Control.Monad.Reader.Class
 import Control.Monad.Error.Class
 import Control.Monad.Error (ErrorT(..))
 import Control.Monad.Trans.Class
+import Control.Monad.IO.Class
 import Control.Lens.TH
+
+import Entologic.Base
+import Entologic.Output
 
 
 data UAst = UAst {uMeta :: AstMeta, uProg :: Program} deriving Show
@@ -54,6 +55,28 @@ data ProgramEntry = PEFunc Function
 
 data Program = Program { pEntries :: [ProgramEntry'] }
                deriving (Show)
+
+type Modifiers = [Modifier']
+type Modifier' = AN Modifier
+data Modifier = Public
+              | Protected
+              | Private
+              | Static
+              | Const
+              | Final
+              | Abstract
+              | Transient
+              | Volatile
+              | Synchronized
+              | StrictFP
+                deriving (Show, Ord, Eq)
+
+modifiers :: [(Text, Modifier)]
+modifiers =
+    [("public", Public), ("private", Private) , ("protected", Protected)
+    , ("static", Static), ("const", Const), ("final", Final)
+    , ("abstract", Abstract), ("transient", Transient), ("volatile", Volatile)
+    , ("synchronized", Synchronized), ("strictfp", StrictFP)]
 
 data KWType = Int
             | Long
@@ -97,16 +120,18 @@ data Field = Field
              deriving (Show)
 
 type Function' = AN Function
-data Function = Function { fName :: String'
+data Function = Function { fMods :: Modifiers
                          , fRTyp :: Maybe Type'
+                         , fName :: Text'
                          , fParams :: [ParamDecl']
-                         , fBody :: Body'
-                         , fExtra :: Maybe LSAny' 
+                         , fBody :: [Statement']
                          }
                 deriving (Show)
 
 type ParamDecl' = AN ParamDecl
-data ParamDecl = ParamDecl { pName :: Text', pType :: Maybe Type' }
+data ParamDecl = ParamDecl { pName :: Text'
+                           , pType :: Maybe Type'
+                           , pDefault :: Maybe Expression'}
                  deriving (Show, Ord, Eq)
 
 type Body' = AN Body
@@ -114,13 +139,61 @@ data Body = Body [Statement']
             deriving (Show, Ord, Eq)
 
 type Statement' = AN Statement
-data Statement = VarDecl { vdType :: Type'
+data Statement = VarDecl { vdMods :: Modifiers
+                         , vdType :: Maybe Type'
                          , vdName :: Text'
                          , vdInit :: Maybe Expression'
                          }
+               | MultiVarDecl { vdMods :: Modifiers
+                              , vdType :: Maybe Type'
+                              , vdMDecls :: [OneVarDecl']
+                              }
+               | IfStm { ifCond :: Expression'
+                       , ifThen :: Statement'
+                       , ifElse :: Statement'
+                       }
+               | BlockStm [Statement]
+               | LabeledStm { label :: Text'
+                            , lStm :: Statement'
+                            }
+               | ForStm { forInit :: Maybe ForInit'
+                        , forCond :: Maybe Expression'
+                        , forUpd :: Maybe [Expression']
+                        , forBody :: Statement'
+                        }
+               | WhileStm { whCond :: Expression'
+                          , whBody :: Statement'
+                          }
+               | DoStm { doCond :: Expression'
+                       , doBody :: Statement'
+                       }
+               | SwitchStm { swOn :: Expression'
+                           , swCases :: [Case']
+                           , swDef :: [Statement]
+                           }
+               | ReturnStm Expression'
                | StmExpr Expression
-
                  deriving (Show, Ord, Eq)
+
+type Case' = AN Case
+data Case = Case { cValue :: Expression
+                 , cBody :: [Statement]
+                 }
+            deriving (Show, Ord, Eq)
+
+type ForInit' = AN ForInit
+data ForInit = FVDecl { fvdMods :: Modifiers
+                      , fvdType :: Maybe Type'
+                      , fvdDecls :: [OneVarDecl']
+                      }
+             | FExps { fExps :: [Expression] }
+               deriving (Show, Ord, Eq)
+
+type OneVarDecl' = AN OneVarDecl
+data OneVarDecl = OneVarDecl { ovdName :: Text'
+                             , ovdInitializer :: Maybe Expression'
+                             }
+                  deriving (Show, Ord, Eq)
 
 type VarRef' = AN VarRef
 data VarRef = VarAccess Text
@@ -148,6 +221,14 @@ data InfixOp = Plus
              | Equal
              | NEqual
                deriving (Show, Ord, Eq)
+
+--infixOps :: IsString a => [(a, InfixOp)]
+infixOps :: [(Text, InfixOp)]
+infixOps = 
+    [("add", Plus), ("subtract", Minus), ("multiply", Mult), ("divide", Div)
+    , ("modulo", Mod), ("logicalOr", LOr), ("logicalAnd", LAnd)
+    , ("bitOr", BOr), ("bitAnd", BAnd), ("xor", Xor), ("rShift", RShift)
+    , ("lShift", LShift), ("rUShift", RUShift)]
 
 type PrefixOp' = AN PrefixOp
 data PrefixOp = Neg

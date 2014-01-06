@@ -14,14 +14,18 @@ module Entologic.Output
     ) where
 
 import Data.Text
+
 import Control.Lens.TH
+
+import qualified Database.MongoDB as DB
 
 import Entologic.Base
 
 data OutputNode = OutputNode { _oNode :: Text
                              , _oClauses :: [OutputClause]
                              , _oIndent :: Bool
-                             , _loc :: Area }
+                             , _loc :: Area
+                             , _source :: Text }
                   deriving (Eq, Ord, Show)
 
 data OutputClause = OCString Text

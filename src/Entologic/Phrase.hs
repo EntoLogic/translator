@@ -40,6 +40,8 @@ import Control.Monad.Error.Class
 import Control.Lens
 import Control.Applicative ((<$>))
 
+import qualified Database.MongoDB as DB
+
 import Entologic.Base
 import Entologic.Output
 import Entologic.Error
@@ -74,16 +76,22 @@ _sLangPhrase nLang pphrase = case M.lookup nLang $ pphrase ^. pSLangs of
 phraseClauses :: PLang -> SLang -> Getter Phrase [Clause]
 phraseClauses pl sl = langPhrase pl . sLangPhrase sl . spClauses
 
+phraseSPhrase :: PLang -> SLang -> Getter Phrase SPhrase
+phraseSPhrase pl sl = langPhrase pl . sLangPhrase sl
+
+nodeSPhrase :: Text -> PLang -> SLang -> Fold Phrases SPhrase
+nodeSPhrase node pl sl = (at node . _Just) . phraseSPhrase pl sl
+
 nodeClause :: Text -> PLang -> SLang -> Fold Phrases [Clause]
 nodeClause node pl sl = (at node . _Just) . phraseClauses pl sl
 
 
-getClauses :: Text -> TL (Maybe [Clause])
+getClauses :: Text -> TL (Maybe ([Clause], DB.ObjectId))
 getClauses node = do
     (TLInfo phrases pl sl) <- ask
-    let clauses = phrases ^? nodeClause node pl sl
-    case clauses of
-      j@(Just x) -> return $ Just x
+    let sPhrase = phrases ^? nodeSPhrase node pl sl
+    case sPhrase of
+      (Just (SPhrase _ clauses id)) -> return $ Just (clauses, id)
       Nothing ->
         case sl of
           "en" -> throwError $ "clauses for " ++ T.unpack node

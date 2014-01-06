@@ -78,11 +78,12 @@ s :: String -> String
 s = id
 
 instance ToJSON ClauseCond where
-    toJSON (Present not attr) = object [ "condition" .= s "present", "not" .= not
-                                       , "attribute" .= attr ]
+    toJSON (Present not attr) =
+        object [ "condition" .= s "present", "not" .= not, "attribute" .= attr ]
     toJSON (Comp not comp attr val) =
-        object [ "condition" .= s "present", "not" .= s "not", "comparison" .= show comp
-               , "attribute" .= attr, "value" .= val ]
+        object [ "condition" .= s "present", "not" .= s "not"
+               , "comparison" .= show comp, "attribute" .= attr
+               , "value" .= val ]
 
 instance ToJSON Clause where
     toJSON (DefClause clauses) = toJSON clauses

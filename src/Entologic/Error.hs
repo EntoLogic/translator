@@ -30,10 +30,12 @@ errFromRight :: (MonadError e m) => e -> Either b a -> m a
 errFromRight _ (Right a) = return a
 errFromRight err (Left _) = throwError err
 
-changeError :: (Error e, Error f, Monad m) => (e -> f) -> ErrorT e m a -> ErrorT f m a
+changeError :: (Error e, Error f, Monad m) =>
+                   (e -> f) -> ErrorT e m a -> ErrorT f m a
 changeError f a = ErrorT $ changeError' f a
 
-changeError' :: (Error e, Error f, Monad m) => (e -> f) -> ErrorT e m a -> m (Either f a)
+changeError' :: (Error e, Error f, Monad m) =>
+                    (e -> f) -> ErrorT e m a -> m (Either f a)
 changeError' func action = do
     result <- runErrorT action 
     case result of

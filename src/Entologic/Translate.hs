@@ -7,6 +7,7 @@
            , FlexibleInstances
            , OverlappingInstances
            , UndecidableInstances
+           , CPP
            #-}
 
 module Entologic.Translate where
@@ -16,6 +17,10 @@ import qualified Data.Text as T
 import Data.Text(Text(..))
 import Data.Maybe (fromJust, mapMaybe)
 import Data.List (intersperse)
+import Data.Tuple (swap)
+import qualified Data.Traversable as TV
+
+import qualified Database.MongoDB as DB
 
 import Entologic.Base
 import Entologic.Ast
@@ -59,12 +64,6 @@ localS mod action = do
     return a
 
 
-result :: AstNode a => a -> Area -> [OutputClause] -> TL [OutputClause]
-result node area translation = return . (:[]) . OCNode $ OutputNode (name node) translation
-                            False area
-
-on2Text (OutputNode _ ((OCString t):_) _ _) = t
-oc2Text (OCNode x) = on2Text x
 
 instance Variable Bool where
     present = id
@@ -113,7 +112,8 @@ instance Variable Text where
 instance Variable Text' where
     present (t, _) = present t
     comparison (t, _) = comparison t
-    inPhrase (t, a) = return . (:[]) . OCNode $ OutputNode "" [OCString t] False a
+    inPhrase (t, a) = return . (:[]) . OCNode $ OutputNode "" [OCString t]
+                                                  False a ""
 
 instance Variable OutputClause where 
     inPhrase = return . (:[])
@@ -130,6 +130,14 @@ instance Variable [OutputClause] where
     inPhrase = return
     present = foldl (||) False . map present
     comparison = foldl (+) 0 . map comparison
+
+instance Variable a => Variable (Maybe a) where
+    inPhrase Nothing = return []
+    inPhrase (Just v) = inPhrase v
+    present Nothing = False
+    present (Just v) = present v
+    comparison Nothing = 0
+    comparison (Just v) = comparison v
 
 {-
 instance AstNode a => Variable a where
@@ -149,7 +157,8 @@ listify xs = let (last', init) = initLast xs
              in case last' of
                 Nothing -> return ""
                 Just last ->
-                  return $ (T.intercalate ", " init) `T.append` (" and " `T.append` last)
+                  return $ (T.intercalate ", " init) `T.append`
+                    (" and " `T.append` last)
 -}
 
 listify' :: [OutputClause] -> TL [OutputClause]
@@ -159,6 +168,13 @@ listify' xs = let (last', init) = initLast xs
                 Just last ->
                   return $ (intersperse (OCString ", ") init) ++
                                 ([(OCString " and ")] ++ [last])
+
+instance AstNode a => AstNode (Maybe a) where
+    name Nothing = "Nothing"
+    name (Just x) = name x
+
+    translate (Nothing, _) = return []
+    translate (Just x, area) = translate (x, area)
 
 instance AstNode Program where
     name = const "Program"
@@ -171,12 +187,73 @@ instance AstNode Program where
 
 instance AstNode ProgramEntry where
     name (PEStm s) = name s
+    name (PEFunc f) = name f
     translate (PEStm s, area) = translate (s, area)
+    translate (PEFunc f, area) = translate (f, area)
     -- TODO: Other ProgramEntry types
 
+maybeTranslate :: AstNode a => Maybe (AN a) -> TL (Maybe [OutputClause])
+maybeTranslate = TV.sequence . fmap translate
+
+#define NAME(node) name (node {}) = "node"
+
+instance AstNode Function where
+    name = const "FuncDecl"
+    translate (node@(Function modifiers typ name arguments body), area) = do
+        mods <- mapM translate modifiers
+        typ' <- maybeTranslate typ
+        args <- mapM translate arguments
+        body' <- mapM translate body
+        let vars = M.fromList [ ("modifiers", AV mods), ("returnType", AV typ')
+                              , ("name", AV name), ("arguments", AV args)
+                              , ("body", AV body') ]
+        defTrans node area vars
+
+instance AstNode ParamDecl where
+    name = const "ParamDecl"
+    translate = undefined
+
 instance AstNode Statement where
+    name (StmExpr _) = "StmExpr"
+    NAME(VarDecl)
+    NAME(MultiVarDecl)
+    NAME(IfStm)
+    NAME(ForStm)
+    NAME(WhileStm)
+    NAME(DoStm)
+    NAME(ReturnStm)
+    NAME(SwitchStm)
+    NAME(BlockStm)
+
     translate (StmExpr e, area) = translate (e, area)
+
+    translate (node@(VarDecl modifiers typ name initializer), area) = do
+        mods <- mapM translate modifiers
+        typ' <- maybeTranslate typ
+        init <- runSubExpr node . TV.sequence $ translate <$> initializer
+        let vars = M.fromList
+                     [("modifiers", AV mods), ("type", AV typ')
+                     , ("initializer", AV init), ("name", AV name)]
+        defTrans node area vars
+
+    translate (node@(MultiVarDecl modifiers typ decls), area) = do
+        mods <- mapM translate modifiers
+        typ' <- maybeTranslate typ
+        decls <- mapM translate decls
+        let vars = M.fromList
+                     [("modifiers", AV mods), ("type", AV typ')
+                     , ("declarations", AV decls)]
+        defTrans node area vars
+
     -- TODO: Other Statement types
+
+instance AstNode OneVarDecl where
+    name = const "OneVarDecl"
+    translate (node@(OneVarDecl name initializer), area) = do
+        init <- maybeTranslate initializer
+        let vars = M.fromList [("name", AV name), ("initializer", AV init)]
+        defTrans node area vars
+        
 
 instance AstNode Expression where
     name (BinOp {}) = "BinaryExpr"
@@ -215,10 +292,10 @@ instance AstNode Expression where
         defTrans node area vars
 
     translate (node@(IntLit val), area) = do
-        result node area . (:[]) . OCString . T.pack $ show val
+        result node area ((:[]) . OCString . T.pack $ show val) ""
 
     translate (node@(StringLit val), area) = do
-        result node area . (:[]) . OCString . T.pack $ show val
+        result node area ((:[]) . OCString . T.pack $ show val) ""
 
     translate (node@(PreOp op expression), area) = do
         tOp <- translate op
@@ -293,28 +370,35 @@ parens node = chooseM needsParens (bracket' '(' ')') id
 english :: TLInfo -> TLInfo
 english = tlSLang .~ "en"
 
+toText :: OutputClause -> Text
+toText (OCString t) = t
+toText (OCNode n) = T.concat . map toText $ n ^. oClauses
+toText (OCNodes n) = T.concat . concat . map (map toText . (^. oClauses)) $ n
+
 webTranslate :: [OutputClause] -> TL [OutputClause]
-webTranslate = undefined
+webTranslate clauses = do
+    let text = T.concat $ map toText clauses
+    return []
 
 defTrans :: AstNode a => a -> Area -> AnyVariables -> TL [OutputClause]
 defTrans node area vars = do
     clauses <- getClauses $ name node
     parens' <- parens node
     case clauses of
-      Just clauses' -> result node area . parens' =<<
-                                        insertClauses clauses' vars
+      Just (clauses', id) -> do
+        clauses <- insertClauses clauses' vars
+        result node area (parens' clauses) $ T.pack $ show id
       Nothing -> webTranslate =<< local english (translate (node, area))
+
+result :: AstNode a => a -> Area -> [OutputClause] -> Text
+                         -> TL [OutputClause]
+result node area translation id =
+    return . (:[]) . OCNode $ OutputNode (name node) translation False area id
+
         
-
+infixOpNames = M.fromList . map swap $ infixOps
 instance AstNode InfixOp where
-    name node = fromJust $ M.lookup node names
-      where
-        names = M.fromList [(Plus, "add"), (Minus, "subtract")
-            , (Mult, "multiply"), (Div, "divide"), (Mod, "modulo")
-            , (LOr, "logicalOr"), (LAnd, "logicalAnd"), (BOr, "bitOr")
-            , (BAnd, "bitAnd"), (Xor, "xor"), (RShift, "rShift")
-            , (LShift, "lShift"), (RUShift, "ruShift")]
-
+    name node = fromJust $ M.lookup node infixOpNames
     translate (node, area) = defTrans node area M.empty
 
 instance AstNode PrefixOp where
@@ -330,6 +414,12 @@ instance AstNode PostfixOp where
     name PostDec = "posDecrement"
 
     translate (node, area) = defTrans node area M.empty
+
+modNames = M.fromList . map swap $ modifiers
+instance AstNode Modifier where
+    name node = fromJust $ M.lookup node modNames
+    translate (node, area) = defTrans node area M.empty
+    
 
 instance AstNode GenericParam where
     name = const "GenericParameter"

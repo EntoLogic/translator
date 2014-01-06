@@ -9,7 +9,9 @@ import Data.Aeson.Types
 import qualified Data.Map as M
 import qualified Data.Vector as V
 import Data.Vector ((!?))
-import Data.Text
+import qualified Data.Text as T
+import Data.Text (Text(..))
+import Data.Maybe (maybeToList)
 import qualified Data.ByteString.Lazy as L
 import Data.Attoparsec.Number (Number(..))
 
@@ -28,15 +30,23 @@ readAstFile path = do
     json <- L.readFile path
     either (return . error) return $ eitherDecode json
 
+maybeLToList :: Maybe [a] -> [a]
+maybeLToList = concat . maybeToList
+
+(.:*) :: FromJSON a => Object -> Text -> Parser [a]
+obj .:* name = maybeLToList <$> obj .:? name
+
 area :: Object -> Parser Area
 area obj = area' =<< obj .:? "loc"
 
 area' :: Maybe Object -> Parser Area
 area' (Nothing) = pure $ Area Nothing Nothing
-area' (Just obj) = Area <$> (join <$> obj .:? "start") <*> (join <$> obj .:? "end")
+area' (Just obj) = Area <$> (join <$> obj .:? "start")
+                        <*> (join <$> obj .:? "end")
 
 instance FromJSON (Maybe Location) where
-    parseJSON (Array arr) = return $ Location <$> (toInt <$> arr !? 0) <*> (toInt <$> arr !? 1)
+    parseJSON (Array arr) = return $ Location <$> (toInt <$> arr !? 0)
+                                              <*> (toInt <$> arr !? 1)
       where
         toInt (Number (I i)) = fromIntegral i
         toInt (Number (D d)) = floor d
@@ -65,20 +75,20 @@ instance FromJSON ProgramEntry where
 instance FromJSON Function where
     parseJSON (Object obj) = do
        (String "Function") <- obj .: "node"
-       Function <$> obj .: "Name"
-                <*> obj .:? "RetType"
-                <*> obj .: "Arguments"
-                <*> obj .: "Body"
---                <*> obj .:? "Extra"
-                <*> pure Nothing
+       Function <$> obj .: "modifiers"
+                <*> obj .:? "returnType"
+                <*> obj .: "name"
+                <*> obj .: "arguments"
+                <*> obj .: "body"
 
 instance FromJSON Type where
     parseJSON (String s) = return $ StringT s
 
 instance FromJSON ParamDecl where
 --    parseJSON (String s) = return $ ParamDecl s Nothing
-    parseJSON (Object obj) = ParamDecl <$> tupleM (obj .: "Name", area obj)
-                                       <*> obj .:? "Type"
+    parseJSON (Object obj) = ParamDecl <$> obj .: "name"
+                                       <*> obj .:? "type"
+                                       <*> obj .:? "initializer"
 
 instance FromJSON Body where
     parseJSON (Array stms) = Body <$> mapM parseJSON (V.toList stms)
@@ -93,20 +103,23 @@ instance FromJSON Statement where
         parsers = [("VarDecl", varDecl)]
 
 varDecl :: Object -> Parser Statement
-varDecl obj = VarDecl <$> obj .: "Type"
-                      <*> obj .: "Name"
-                      <*> obj .:? "Value"
+varDecl obj = VarDecl <$> obj .:* "modifiers"
+                      <*> obj .:? "type"
+                      <*> obj .: "name"
+                      <*> obj .:? "initializer"
 
 instance FromJSON Expression where
     parseJSON (Object obj) = do
         (String typ) <- obj .: "node"
         case lookup typ parsers of
           Just f -> f obj
-          Nothing -> fail $ "Invalid Expression type: " ++ unpack typ
+          Nothing -> fail $ "Invalid Expression type: " ++ T.unpack typ
       where
         parsers :: [(Text, Object -> Parser Expression)]
-        parsers = [("Assignment", assignment), ("OpAssign", opAssign), ("BinaryExpr", binExpr), ("IntLit", intLit),
-                   ("PrefixOp", preOp), ("PostfixOp", postOp)]
+        parsers =
+          [("Assignment", assignment), ("OpAssign", opAssign)
+          , ("BinaryExpr", binExpr), ("IntLit", intLit), ("PrefixOp", preOp)
+          , ("PostfixOp", postOp)]
 
 instance FromJSON VarRef where
     parseJSON (String s) = pure $ VarAccess s
@@ -137,21 +150,19 @@ binExpr obj = BinOp <$> obj .: "op"
                     <*> obj .: "left"
                     <*> obj .: "right"
 
-preOrPostOp :: FromJSON a => (AN a -> Expression' -> Expression) -> Object -> Parser Expression
+preOrPostOp :: FromJSON a => (AN a -> Expression' -> Expression) -> Object
+                                -> Parser Expression
 preOrPostOp const obj = const <$> obj .: "op"
                               <*> obj .: "operand"
 
 instance FromJSON PrefixOp where
-    parseJSON (String s) = do
-        (Just op) <- return $ lookup s ops
-        return op
+    parseJSON (String s) = mFromJust $ lookup s ops
       where
-        ops = [("Neg", Neg), ("BInv", BInv), ("PreInc", PreInc), ("PreDec", PreDec)]
+        ops = [("Neg", Neg), ("BInv", BInv), ("PreInc", PreInc)
+              , ("PreDec", PreDec)]
 
 instance FromJSON PostfixOp where
-    parseJSON (String s) = do
-        (Just op) <- return $ lookup s ops
-        return op
+    parseJSON (String s) = mFromJust $ lookup s ops
       where
         ops = [("Inc", PostInc), ("Dec", PostDec)]
 
@@ -162,10 +173,16 @@ intLit obj = (fmap IntLit . mFromJust . readMaybe) =<< obj .: "value"
 
 
 instance FromJSON InfixOp where
-    parseJSON (String s) = do
-        (Just op) <- return $ lookup s ops
-        return op
+    parseJSON (String s) = mFromJust $ lookup s infixOps
+
+instance FromJSON Modifier where
+    parseJSON (Object obj) = obj .: "modifier"
+    parseJSON (String s) = mFromJust $ lookup s mods
       where
-        ops = [("add", Plus), ("sub", Minus), ("multiply", Mult), ("divide", Div),
-               ("modulo", Mod), ("logicalOr", LOr), ("logicalAnd", LAnd), ("bitOr", BOr),
-               ("bitAnd", BAnd), ("xor", Xor), ("rShift", RShift), ("lShift", LShift), ("rUShift", RUShift)]
+        mods =
+          [("public", Public), ("private", Private) , ("protected", Protected)
+          , ("static", Static), ("const", Const), ("final", Final)
+          , ("abstract", Abstract), ("transient", Transient)
+          , ("volatile", Volatile), ("synchronized", Synchronized)
+          , ("strictfp", StrictFP)]
+

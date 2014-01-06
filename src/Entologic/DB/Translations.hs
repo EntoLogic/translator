@@ -11,7 +11,6 @@ import Entologic.Base
 import Entologic.Ast
 import Entologic.Ast.Json
 import Entologic.Phrase
-import Entologic.Phrase.Json
 import Entologic.Output
 import Entologic.Output.Json
 import Entologic.DB
@@ -66,8 +65,10 @@ dbAccess config = do
     toTranslate <- nextN 10 =<< DB.find (select ["lastTranslated" := DB.Null]
                                             "explanations")
                                            {sort = ["updatedAt" =: (1 :: Int)]}
-    liftIO $ putStrLn $ "got things to translate, length " ++ show (length toTranslate)
-    translations <- liftIO $ mapM (fmap (_1 %~ (fmap $ T.pack . L8.unpack)) . runTranslation) toTranslate
+    liftIO $ putStrLn $ "got things to translate, length "
+                        ++ show (length toTranslate)
+    translations <- liftIO $ mapM (fmap (_1 %~ (fmap $ T.pack . L8.unpack))
+                                        . runTranslation) toTranslate
     time <- liftIO getCurrentTime
     let results = map (update time) $ zip toTranslate translations
     mapM_ (DB.save "explanations") results
@@ -76,9 +77,11 @@ dbAccess config = do
     update time (doc, (translation, error)) = merge changes doc
       where
         message Nothing = DB.Null
-        message (Just error) = DB.Array [Doc ["msg" =: error, "msgType" =: T.pack "error"]]
+        message (Just error) =
+            DB.Array [Doc ["msg" =: error, "msgType" =: T.pack "error"]]
         changes = ["lastTranslated" =: time, "updatedAt" =: time
-                   , "outputTree" =: translation, "translatorMessages" := message error ]
+                   , "outputTree" =: translation
+                   , "translatorMessages" := message error ]
 
     runTranslation :: Document -> IO (Maybe L.ByteString, Maybe String)
     runTranslation doc = do
@@ -91,12 +94,15 @@ dbAccess config = do
     runTranslation' doc = do
         pLang <- DB.lookup "pLang" doc
         sLang <- DB.lookup "nLang" doc
-        liftIO $ putStrLn $ "running translation: pLang = " ++ T.unpack pLang ++ ", sLang = " ++ T.unpack sLang
-        ast <- parseCode (config ^. astGens) pLang =<< L8.pack <$> DB.lookup "plainCodeInput" doc
+        liftIO $ putStrLn $ "running translation: pLang = " ++ T.unpack pLang
+                            ++ ", sLang = " ++ T.unpack sLang
+        ast <- parseCode (config ^. astGens) pLang =<<
+                    L8.pack <$> DB.lookup "plainCodeInput" doc
         liftIO $ putStrLn "parsed code into AST"
         phrases' <- eFromJust $ config ^. phrases
-        output <- liftIO $ runTL (TLInfo phrases' pLang sLang) (TLState False "")
-                      (translate  (uProg ast, Area Nothing Nothing))
+        output <- liftIO . runTL (TLInfo phrases' pLang sLang)
+                                 (TLState False "")
+                         $ translate  (uProg ast, Area Nothing Nothing)
         [(OCNode node)] <- eFromRight output
         liftIO $ putStrLn "runTranslation completed"
         return $ encode node
