@@ -102,7 +102,7 @@ dbAccess config = do
         phrases' <- eFromJust $ config ^. phrases
         output <- liftIO . runTL (TLInfo phrases' pLang sLang)
                                  (TLState False "")
-                         $ translate  (uProg ast, Area Nothing Nothing)
+                         $ translate'  (uProg ast, Area Nothing Nothing)
         [(OCNode node)] <- eFromRight output
         liftIO $ putStrLn "runTranslation completed"
         return $ encode node

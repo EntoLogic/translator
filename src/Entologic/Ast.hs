@@ -38,11 +38,21 @@ data AstMeta = AstMeta --{ mPLang :: PLang, mSLang :: SLang }
 
 class AstNode a where
     translate :: AN a -> TL [OutputClause]
-    translate = undefined
+    translate (ukn, area) =
+      case ukn of
+        Node n -> translate' (n, area)
+        Unknown err -> return [OCString err]
+    translate' :: (a, Area) -> TL [OutputClause]
+
     name :: a -> Text
     name = const ""
 
-type AN a = (a, Area)
+-- A node that might be unknown, in which case an error is given
+data UK a = Node a
+          | Unknown Text
+            deriving (Eq, Ord, Show)
+
+type AN a = (UK a, Area)
 
 type Text' = AN Text
 type String' = AN String

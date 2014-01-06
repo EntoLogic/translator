@@ -74,8 +74,6 @@ instance FromJSON ClauseCond where
 instance FromJSON Ordering where
     parseJSON (String s) = mFromJust . readMaybe $ T.unpack s
 
-s :: String -> String
-s = id
 
 instance ToJSON ClauseCond where
     toJSON (Present not attr) =

@@ -67,7 +67,7 @@ instance FromJSON ProgramEntry where
     parseJSON o@(Object map) = do
         (String s) <- map .: "node"
         case s of
-          "Function" -> PEFunc <$> parseJSON o
+          "FuncDecl" -> PEFunc <$> parseJSON o
           _ -> PEStm <$> parseJSON o
 --          "ClassDecl" -> PECls <$> parseJSON o
 
@@ -130,14 +130,20 @@ instance FromJSON VarRef where
           "FieldAccess" -> FieldAccess <$> obj .: "obj" <*> obj .: "field"
 
 instance FromJSON a => FromJSON (AN a) where
-    parseJSON obj@(Object map) = tupleM (parseJSON obj, area map)
-    parseJSON obj = tupleM (parseJSON obj, return $ Area Nothing Nothing)
+    parseJSON obj@(Object map) = do
+        node <- map .: "node"
+        case s node of
+          "Unknown" -> tupleM (Unknown <$> map .:? "err" .!= "Unknown error"
+                              , return $ Area Nothing Nothing)
+          _ -> tupleM (Node <$> parseJSON obj, area map)
+    parseJSON obj = tupleM (Node <$> parseJSON obj
+                           , return $ Area Nothing Nothing)
 
 an :: (Value -> Parser a) -> Value -> Parser (AN a)
-an f obj@(Object map) = tupleM (f obj, area map)
+an f obj@(Object map) = tupleM (Node <$> f obj, area map)
 
 an' :: (Object -> Parser a) -> Object -> Parser (AN a)
-an' f obj = tupleM (f obj, area obj)
+an' f obj = tupleM (Node <$> f obj, area obj)
 
 assignment obj = Assign <$> obj .: "variable"
                         <*> obj .: "value"

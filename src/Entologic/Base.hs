@@ -110,6 +110,9 @@ data Area = Area { _start :: Maybe Location, _end :: Maybe Location }
 data Location = Location { _line :: Int, _col :: Int }
                 deriving (Eq, Ord, Show)
 
+s :: String -> String
+s = id
+
 tupleM :: Monad m => (m a, m b) -> m (a, b)
 tupleM (ma, mb) = do
     a <- ma
