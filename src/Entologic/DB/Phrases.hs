@@ -52,6 +52,7 @@ dlPhrasesT' config pipe = do
     phrases <- throwErrorT $ dlPhrases (config ^. login) pipe
     putMVar (config ^. newPhrases) phrases
     threadDelay (60 * 1000 * 1000)
+    dlPhrasesT' config pipe
     
 
 {-
