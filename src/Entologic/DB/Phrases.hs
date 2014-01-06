@@ -67,14 +67,16 @@ writeToJson phrases = do
 
 dbAccess :: Action IO Phrases
 dbAccess = do
-    docs <- rest =<< DB.find (select [] "phrases")
+    docs <- rest =<< DB.find (select ["inUse" =: True] "phrases")
     liftIO $ putStrLn $ "Got some phrases?, length " ++ show (length docs)
     nodes <- mFromJust $ sortPhrases docs
-    let nodes' = topVotedNodes nodes
+--    let nodes' = topVotedNodes nodes
+    let nodes' = (fmap.fmap.fmap $ head) $ nodes
     let errPhrases = M.mapWithKey toPhrase nodes' :: M.Map Text (ErrorT String
                                                                 Identity Phrase)
     let (errs, phrases) = M.foldWithKey getError ([], M.empty) errPhrases
     liftIO $ outputErrs errs
+    liftIO $ putStrLn $ "Downloaded phrases: " ++ show phrases
     return phrases
   where
     getError :: Text -> ErrorT String Identity Phrase
@@ -99,11 +101,10 @@ sortPhrases = foldM sortPhrase M.empty
         insertPhrase map phrase <$> DB.lookup "phraseName" phrase
                                 <*> DB.lookup "pLang" phrase
                                 <*> DB.lookup "nLang" phrase
-                                <*> DB.lookup "inUse" phrase
-    insertPhrase :: Map Text (Map Text (Map Text [Document])) -> Document ->
-                      Text -> PLang -> SLang -> Bool ->
-                      Map Text (Map Text (Map Text [Document]))
-    insertPhrase map phrase node plang slang inUse = if not inUse then map else
+    insertPhrase :: Map Text (Map Text (Map Text [Document])) -> Document
+                      -> Text -> PLang -> SLang
+                      -> Map Text (Map Text (Map Text [Document]))
+    insertPhrase map phrase node plang slang =
         case M.lookup node map of
           Nothing -> M.insert node
                         (M.singleton plang $ M.singleton slang [phrase]) map
@@ -122,6 +123,7 @@ topVotedNodes = fmap.fmap.fmap $ maximumBy cmpVotes
     cmpVotes d1 d2 = compare (votes d1) (votes d2)
     votes :: Document -> Int
     votes phrase = DB.at "voteCache" phrase
+
 
 -- a = Phrase; b = Map Text Document; c = PPhrase
 toGenPhrase :: (Monad m, Functor m) => (Text -> c -> Map Text c -> a) -> Text
