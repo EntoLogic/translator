@@ -69,6 +69,7 @@ module Entologic.Ast
     , GenericParamDecl'
     , Area(..)
     , Location(..)
+    , errNode
     ) where
 
 
@@ -96,13 +97,16 @@ data UAst = UAst {uMeta :: AstMeta, uProg :: Program} deriving Show
 data AstMeta = AstMeta --{ mPLang :: PLang, mSLang :: SLang }
                deriving (Show)
 
+errNode :: Text -> OutputNode
+errNode e = OutputNode "Unknown" [OCString e] False (Area Nothing Nothing) ""
+
 class AstNode a where
-    translate :: AN a -> TL [OutputClause]
+    translate :: AN a -> TL OutputNode
     translate (ukn, area) =
       case ukn of
         Node n -> translate' (n, area)
-        Unknown err -> return [OCString err]
-    translate' :: (a, Area) -> TL [OutputClause]
+        Unknown err -> return $ errNode err
+    translate' :: (a, Area) -> TL OutputNode
 
     name :: a -> Text
     name = const ""
