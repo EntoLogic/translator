@@ -15,6 +15,7 @@ module Entologic.Ast
     , AstNode(..)
     , UK(..)
     , AN
+    , toAn
     , Text'
     , String'
     , Program(..)
@@ -117,6 +118,9 @@ data UK a = Node a
             deriving (Eq, Ord, Show)
 
 type AN a = (UK a, Area)
+
+toAn :: a -> AN a
+toAn a = (Node a, Area Nothing Nothing)
 
 type Text' = AN Text
 type String' = AN String

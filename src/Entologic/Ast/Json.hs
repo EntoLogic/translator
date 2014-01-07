@@ -1,6 +1,8 @@
 
-{-# LANGUAGE OverloadedStrings,
-             FlexibleInstances#-}
+{-# LANGUAGE OverloadedStrings
+           , FlexibleInstances
+           , CPP
+           #-}
 
 module Entologic.Ast.Json where
 
@@ -107,7 +109,7 @@ instance FromJSON Type where
     FAIL(Type)
 
 instance FromJSON ParamDecl where
---    parseJSON (String s) = return $ ParamDecl s Nothing
+    parseJSON (String s) = return $ ParamDecl (toAn s) Nothing Nothing
     parseJSON (Object obj) = ParamDecl <$> obj .: "name"
                                        <*> obj .:? "type"
                                        <*> obj .:? "initializer"
