@@ -52,13 +52,17 @@ instance FromJSON (Maybe Location) where
         toInt (Number (D d)) = floor d
     parseJSON _ = return Nothing
 
+#define FAIL(typ) parseJSON x = fail $ "Couldn't parse typ from " ++ show x
+
 instance FromJSON UAst where
     parseJSON (Object map) = UAst <$> map .: "Meta"
                                   <*> map .: "Program"
+    FAIL(UAst)
 
 instance FromJSON AstMeta where
     parseJSON (Object map) = return AstMeta {-<$> map .: "Language"
                                      <*> map .: "SpokenLanguage" -}
+    FAIL(AstMeta)
 
 instance FromJSON Program where
     parseJSON (Array v) = Program <$> mapM parseJSON (V.toList v)
@@ -70,11 +74,13 @@ instance FromJSON Program where
             CompilationUnit <$> obj .: "package"
                             <*> obj .: "imports"
                             <*> obj .: "declarations"
+    FAIL(Program)
+
 instance FromJSON Import where
-    parseJSON = undefined
+    FAIL(Import)
 
 instance FromJSON TypeDeclaration where
-    parseJSON = undefined
+    FAIL(TypeDeclaration)
 
 instance FromJSON ProgramEntry where
     parseJSON o@(Object map) = do
@@ -82,6 +88,7 @@ instance FromJSON ProgramEntry where
         case s of
           "FuncDecl" -> PEFunc <$> parseJSON o
           _ -> PEStm <$> parseJSON o
+    FAIL(ProgramEntry)
 --          "ClassDecl" -> PECls <$> parseJSON o
 
 
@@ -93,18 +100,22 @@ instance FromJSON Function where
                 <*> obj .: "name"
                 <*> obj .:* "arguments"
                 <*> obj .:* "body"
+    FAIL(FuncDecl)
 
 instance FromJSON Type where
     parseJSON (String s) = return $ StringT s
+    FAIL(Type)
 
 instance FromJSON ParamDecl where
 --    parseJSON (String s) = return $ ParamDecl s Nothing
     parseJSON (Object obj) = ParamDecl <$> obj .: "name"
                                        <*> obj .:? "type"
                                        <*> obj .:? "initializer"
+    FAIL(ParamDecl)
 
 instance FromJSON Body where
     parseJSON (Array stms) = Body <$> mapM parseJSON (V.toList stms)
+    FAIL(Body)
 
 instance FromJSON Statement where
     parseJSON (Object obj) = do
@@ -114,6 +125,7 @@ instance FromJSON Statement where
           Nothing -> StmExpr <$> parseJSON (Object obj)
       where
         parsers = [("VarDecl", varDecl)]
+    FAIL(Statement)
 
 varDecl :: Object -> Parser Statement
 varDecl obj = VarDecl <$> obj .:* "modifiers"
@@ -133,6 +145,7 @@ instance FromJSON Expression where
           [("Assignment", assignment), ("OpAssign", opAssign)
           , ("BinaryExpr", binExpr), ("IntLit", intLit), ("PrefixOp", preOp)
           , ("PostfixOp", postOp)]
+    FAIL(Expression)
 
 instance FromJSON VarRef where
     parseJSON (String s) = pure $ VarAccess s
@@ -141,6 +154,7 @@ instance FromJSON VarRef where
         case typ of
           "VarAccess" -> VarAccess <$> obj .: "var"
           "FieldAccess" -> FieldAccess <$> obj .: "obj" <*> obj .: "field"
+    FAIL(VarRef)
 
 instance FromJSON a => FromJSON (AN a) where
     parseJSON obj@(Object map) = do
@@ -179,11 +193,13 @@ instance FromJSON PrefixOp where
       where
         ops = [("Neg", Neg), ("BInv", BInv), ("PreInc", PreInc)
               , ("PreDec", PreDec)]
+    FAIL(PrefixOp)
 
 instance FromJSON PostfixOp where
     parseJSON (String s) = mFromJust $ lookup s ops
       where
         ops = [("Inc", PostInc), ("Dec", PostDec)]
+    FAIL(PostfixOp)
 
 preOp = preOrPostOp PreOp
 postOp = preOrPostOp PostOp
@@ -193,6 +209,7 @@ intLit obj = (fmap IntLit . mFromJust . readMaybe) =<< obj .: "value"
 
 instance FromJSON InfixOp where
     parseJSON (String s) = mFromJust $ lookup s infixOps
+    FAIL(InfixOp)
 
 instance FromJSON Modifier where
     parseJSON (Object obj) = obj .: "modifier"
@@ -204,4 +221,5 @@ instance FromJSON Modifier where
           , ("abstract", Abstract), ("transient", Transient)
           , ("volatile", Volatile), ("synchronized", Synchronized)
           , ("strictfp", StrictFP)]
+    FAIL(Modifier)
 
