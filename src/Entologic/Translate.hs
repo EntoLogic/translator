@@ -337,7 +337,8 @@ instance AstNode Expression where
         result node area ((:[]) . OCString . T.pack $ show val) ""
 
     translate' (node@(StringLit val), area) = do
-        result node area ((:[]) . OCString . T.pack $ show val) ""
+        let vars = M.fromList [("value", val)]
+        defTrans node area vars
 
     translate' (node@(PreOp op expression), area) = do
         tOp <- translate op
