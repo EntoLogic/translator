@@ -370,6 +370,7 @@ data Expression = Assign VarRef' Expression'
                 | MethodCall Expression' Text' [GenericParam'] [Expression']
                 | FunctionCall Text' [GenericParam'] [Expression']
                 | TernOp TernaryOp' Expression' Expression'
+                | VarRef VarRef
                   deriving (Show, Ord, Eq)
 
 type GenericParam' = AN GenericParam

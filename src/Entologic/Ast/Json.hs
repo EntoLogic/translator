@@ -146,8 +146,10 @@ instance FromJSON Expression where
         parsers =
           [("Assignment", assignment), ("OpAssign", opAssign)
           , ("BinaryExpr", binExpr), ("IntLit", intLit), ("PrefixOp", preOp)
-          , ("PostfixOp", postOp)]
+          , ("PostfixOp", postOp), ("VarAccess", varRef)
+          , ("FieldAccess", varRef), ("StringLit", stringLit)]
     FAIL(Expression)
+
 
 instance FromJSON VarRef where
     parseJSON (String s) = pure $ VarAccess s
@@ -189,6 +191,9 @@ preOrPostOp :: FromJSON a => (AN a -> Expression' -> Expression) -> Object
                                 -> Parser Expression
 preOrPostOp const obj = const <$> obj .: "op"
                               <*> obj .: "operand"
+
+varRef obj = VarRef <$> parseJSON (Object obj)
+stringLit obj = StringLit <$> obj .: "value"
 
 instance FromJSON PrefixOp where
     parseJSON (String s) = mFromJust $ lookup s ops
