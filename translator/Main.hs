@@ -28,8 +28,9 @@ main' = do
     pipe <- dbConnect (config ^. login)
     phrases' <- dlPhrases (config ^. login) pipe
     let config' = config & phrases .~ Just phrases'
-    liftIO $ dlPhrasesT config pipe
-    liftIO $ loop config pipe
+    liftIO $ putStrLn $ "set config.phrases: " ++ show (config' ^. phrases)
+    liftIO $ dlPhrasesT config' pipe
+    liftIO $ loop config' pipe
   where
     loop config pipe = do
         config' <- updateConfig config
@@ -40,6 +41,7 @@ main' = do
 updateConfig :: Config -> IO Config
 updateConfig config = do
     maybePhrases <- tryTakeMVar $ config ^. newPhrases
+    liftIO $ putStrLn $ "updateConfig: maybePhrases = " ++ show maybePhrases
     case maybePhrases of
       Nothing -> return config
       Just ps -> return $ config & phrases .~ Just ps

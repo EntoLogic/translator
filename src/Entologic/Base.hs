@@ -99,6 +99,9 @@ instance MonadError TLError TL where
     throwError = TL . throwError
     catchError (TL m) f = TL $ catchError m (unTL . f)
 
+instance MonadIO TL where
+    liftIO = TL . liftIO
+
 runTL :: TLInfo -> TLState -> TL a -> IO (Either TLError a)
 runTL info s tl = (flip evalStateT s) . (flip runReaderT info) . runErrorT .
                      unTL $ tl

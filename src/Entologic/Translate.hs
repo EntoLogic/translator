@@ -209,6 +209,7 @@ instance AstNode Program where
         defTrans node area vars
     -}
     translate' (node, area) = do
+        liftIO $ putStrLn $ "translate' Program: " ++ show node
         contents <- mapM translate $ pEntries node
         return $ concat contents
         -- TODO
@@ -232,6 +233,10 @@ instance AstNode Function where
         typ' <- maybeTranslate typ
         args <- concat <$> mapM translate arguments
         body' <- concat <$> mapM translate body
+        liftIO $ putStrLn $ "body = " ++ show body'
+                ++ ", args = " ++ show args
+        liftIO $ putStrLn $ "boolbody = " ++ show (present body')
+                ++ ", boolargs = " ++ show (present args)
         let vars = M.fromList [ ("modifiers", AV mods), ("returnType", AV typ')
                               , ("name", AV name), ("arguments", AV args)
                               , ("body", AV body') ]
@@ -427,6 +432,7 @@ webTranslate clauses = do
 
 defTrans :: AstNode a => a -> Area -> AnyVariables -> TL [OutputClause]
 defTrans node area vars = do
+    liftIO $ putStrLn $ "calling defTrans with node " ++ T.unpack (name node)
     clauses <- getClauses $ name node
     parens' <- parens node
     case clauses of

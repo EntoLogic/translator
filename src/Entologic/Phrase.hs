@@ -133,8 +133,8 @@ insertClauses clauses vars = concat <$> mapMaybeM insertClause clauses
 
     evalCond :: ClauseCond -> Bool
     evalCond cc = if ccNot cc
-                  then evalCond' cc
-                  else not $ evalCond' cc
+                  then not $ evalCond' cc
+                  else evalCond' cc
     evalCond' (Present _ attr) = maybe False present $ M.lookup attr vars
     evalCond' (Comp _ comp attr value) = maybe False (compCond . comparison) $
                                             M.lookup attr vars

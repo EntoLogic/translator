@@ -85,13 +85,18 @@ dbAccess config = do
 
     runTranslation :: Document -> IO (Maybe L.ByteString, Maybe String)
     runTranslation doc = do
+        liftIO $ putStrLn "runTranslation"
         translation <- runErrorT $ runTranslation' doc
+        liftIO $ putStrLn "runTranslation'-ed"
         case translation of
-          Left err -> return (Nothing, Just err)
-          Right trans -> return (Just trans, Nothing)
+          Left err -> putStrLn ("translation error: " ++ err)
+                        >> return (Nothing, Just err)
+          Right trans -> putStrLn "translated" >> L.putStr trans
+                        >> return (Just trans, Nothing)
 
     runTranslation' :: Document -> ErrorT String IO L.ByteString
     runTranslation' doc = do
+        liftIO $ putStrLn "Getting pLang & sLang"
         pLang <- DB.lookup "pLang" doc
         sLang <- DB.lookup "nLang" doc
         liftIO $ putStrLn $ "running translation: pLang = " ++ T.unpack pLang
@@ -99,7 +104,8 @@ dbAccess config = do
         ast <- parseCode (config ^. astGens) pLang =<<
                     L8.pack <$> DB.lookup "plainCodeInput" doc
         liftIO $ putStrLn "parsed code into AST"
-        phrases' <- eFromJust $ config ^. phrases
+        phrases' <- errFromJust "Missing config.phrases!" $ config ^. phrases
+        liftIO $ putStrLn "About to run translate"
         output <- liftIO . runTL (TLInfo phrases' pLang sLang)
                                  (TLState False "")
                          $ translate'  (uProg ast, Area Nothing Nothing)
