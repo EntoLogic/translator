@@ -86,8 +86,8 @@ instance FromJSON TypeDeclaration where
 
 instance FromJSON ProgramEntry where
     parseJSON o@(Object map) = do
-        (String s) <- map .: "node"
-        case s of
+        s <- map .: "node"
+        case s :: String of
           "FuncDecl" -> PEFunc <$> parseJSON o
           _ -> PEStm <$> parseJSON o
     FAIL(ProgramEntry)
@@ -121,8 +121,8 @@ instance FromJSON Body where
 
 instance FromJSON Statement where
     parseJSON (Object obj) = do
-        (String typ) <- obj .: "node"
-        case lookup typ parsers of
+        typ <- obj .: "node"
+        case lookup (typ :: Text) parsers of
           Just f -> f obj
           Nothing -> StmExpr <$> parseJSON (Object obj)
       where
@@ -137,7 +137,7 @@ varDecl obj = VarDecl <$> obj .:* "modifiers"
 
 instance FromJSON Expression where
     parseJSON (Object obj) = do
-        (String typ) <- obj .: "node"
+        typ <- obj .: "node"
         case lookup typ parsers of
           Just f -> f obj
           Nothing -> fail $ "Invalid Expression type: " ++ T.unpack typ
@@ -147,7 +147,8 @@ instance FromJSON Expression where
           [("Assignment", assignment), ("OpAssign", opAssign)
           , ("BinaryExpr", binExpr), ("IntLit", intLit), ("PrefixOp", preOp)
           , ("PostfixOp", postOp), ("VarAccess", varRef)
-          , ("FieldAccess", varRef), ("StringLit", stringLit)]
+          , ("FieldAccess", varRef), ("StringLit", stringLit)
+          , ("FunctionCall", functionCall), ("MethodCall", methodCall)]
     FAIL(Expression)
 
 
@@ -195,6 +196,15 @@ preOrPostOp const obj = const <$> obj .: "op"
 varRef obj = VarRef <$> parseJSON (Object obj)
 stringLit obj = StringLit <$> obj .: "value"
 
+functionCall obj = FunctionCall <$> obj .: "name"
+                                <*> obj .:* "genericParameters"
+                                <*> obj .:* "arguments"
+
+methodCall obj = MethodCall <$> obj .: "object"
+                            <*> obj .: "name"
+                            <*> obj .:* "genericParameters"
+                            <*> obj .:* "arguments"
+
 instance FromJSON PrefixOp where
     parseJSON (String s) = mFromJust $ lookup s ops
       where
@@ -230,3 +240,5 @@ instance FromJSON Modifier where
           , ("strictfp", StrictFP)]
     FAIL(Modifier)
 
+instance FromJSON GenericParam where
+    parseJSON _ = return GenericParam

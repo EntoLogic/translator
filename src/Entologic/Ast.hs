@@ -185,8 +185,8 @@ type Type' = AN Type
             -- types with generic parameters
 data Type = ClassType [(Text', [GenericParam])]
           | StringT Text
-          | ArrayT Type'
-          | KeywordT KWType
+          | ArrayType Type'
+          | KeywordType KWType
 --          | forall a. (ASTNode a, Show a) => LSType a
             deriving (Show, Ord, Eq)
 

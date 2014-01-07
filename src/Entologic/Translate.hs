@@ -387,6 +387,10 @@ instance AstNode Expression where
                     , ("subexpression", AV subexpr)]
         defTrans node area vars
 
+    translate' (node@(VarRef vr), area) = translate' (vr, area)
+
+    translate' _ = return $ errNode "Not yet implemented"
+
 
 instance AstNode VarRef where
     NAME(VarAccess)
