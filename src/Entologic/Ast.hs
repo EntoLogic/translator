@@ -35,6 +35,8 @@ module Entologic.Ast
     , TypeDeclaration'
     , Class(..)
     , Class'
+    , InClassDecl(..)
+    , InClassDecl'
     , Member(..)
     , Member'
     , Field(..)
@@ -252,8 +254,15 @@ data Function = Function { fMods :: Modifiers
 type ParamDecl' = AN ParamDecl
 data ParamDecl = ParamDecl { pName :: Text'
                            , pType :: Maybe Type'
-                           , pDefault :: Maybe Expression'}
+                           , pModifiers :: Modifiers
+                           , pDefault :: Maybe Expression'
+                           , pExtra :: Maybe ParamDeclExtra
+                           }
                  deriving (Show, Ord, Eq)
+
+data ParamDeclExtra = VarArgs
+                    | MapArgs
+                      deriving (Show, Ord, Eq)
 
 type Body' = AN Body
 data Body = Body [Statement']

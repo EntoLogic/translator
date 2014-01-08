@@ -109,10 +109,12 @@ instance FromJSON Type where
     FAIL(Type)
 
 instance FromJSON ParamDecl where
-    parseJSON (String s) = return $ ParamDecl (toAn s) Nothing Nothing
+    parseJSON (String s) = return $ ParamDecl (toAn s) Nothing [] Nothing Nothing
     parseJSON (Object obj) = ParamDecl <$> obj .: "name"
                                        <*> obj .:? "type"
+                                       <*> obj .:* "modifiers"
                                        <*> obj .:? "initializer"
+                                       <*> pure Nothing
     FAIL(ParamDecl)
 
 instance FromJSON Body where
