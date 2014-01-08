@@ -383,6 +383,8 @@ instance AstNode Expression where
         gParams <- rse $ mapM translate genericParams
         args <- rse $ mapM translate arguments
         subexpr <- inSubExpr
+        liftIO $ putStrLn $ "args = " ++ show args
+        liftIO $ putStrLn $ "boolargs = " ++ show (present args)
         let vars = M.fromList [("name", AV function)
                     , ("genericParameters", AV gParams), ("arguments", AV args)
                     , ("subexpression", AV subexpr)]
