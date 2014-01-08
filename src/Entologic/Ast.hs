@@ -385,6 +385,7 @@ data Expression = Assign VarRef' Expression'
                 | IntLit Integer
                 | StringLit Text
                 | FloatLit Double
+                | ArrayLit [Expression']
                 | PreOp PrefixOp' Expression'
                 | PostOp PostfixOp' Expression'
                 | InstanceConstruction Type' [Expression']

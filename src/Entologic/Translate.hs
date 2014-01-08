@@ -341,6 +341,11 @@ instance AstNode Expression where
         let vars = M.fromList [("value", AV val)]
         defTrans node area vars
 
+    translate' (node@(ArrayLit contents), area) = do
+        vals <- mapM translate contents
+        let vars = M.fromList [("contents", AV vals)]
+        defTrans node area vars
+
     translate' (node@(PreOp op expression), area) = do
         tOp <- translate op
         expr <- runSubExpr node $ translate expression

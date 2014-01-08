@@ -146,11 +146,12 @@ instance FromJSON Expression where
       where
         parsers :: [(Text, Object -> Parser Expression)]
         parsers =
-          [("Assignment", assignment), ("OpAssign", opAssign)
+          [ ("Assignment", assignment), ("OpAssign", opAssign)
           , ("BinaryExpr", binExpr), ("IntLit", intLit), ("PrefixOp", preOp)
           , ("PostfixOp", postOp), ("VarAccess", varRef)
           , ("FieldAccess", varRef), ("StringLit", stringLit)
-          , ("FunctionCall", functionCall), ("MethodCall", methodCall)]
+          , ("ArrayLit", arrayLit), ("FunctionCall", functionCall)
+          , ("MethodCall", methodCall) ]
     FAIL(Expression)
 
 
@@ -197,6 +198,8 @@ preOrPostOp const obj = const <$> obj .: "op"
 
 varRef obj = VarRef <$> parseJSON (Object obj)
 stringLit obj = StringLit <$> obj .: "value"
+
+arrayLit obj = ArrayLit <$> obj .: "contents"
 
 functionCall obj = FunctionCall <$> obj .: "name"
                                 <*> obj .:* "genericParameters"
