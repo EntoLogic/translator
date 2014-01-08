@@ -44,8 +44,10 @@ module Entologic.Ast
     , Function'
     , ParamDecl(..)
     , ParamDecl'
+    , ParamDeclExtra(..)
     , Body(..)
     , Body'
+    , Block
     , Statement(..)
     , Statement'
     , Case(..)
@@ -222,7 +224,7 @@ data Class = Class { cMods :: Modifiers
                    , cGericParams :: [GenericParamDecl]
                    , cSuperCls :: Maybe Type'
                    , cInterfaces :: [Type]
-                   , cMembers :: [Member]
+                   , cMembers :: [InClassDecl']
                    }
              deriving (Show, Ord, Eq)
 
@@ -246,7 +248,7 @@ data Function = Function { fMods :: Modifiers
                          , fRTyp :: Maybe Type'
                          , fName :: Text'
                          , fParams :: [ParamDecl']
-                         , fBody :: Block
+                         , fBody :: Maybe Block
                          }
                 deriving (Show, Ord, Eq)
 

@@ -101,7 +101,7 @@ instance FromJSON Function where
                 <*> obj .:? "returnType"
                 <*> obj .: "name"
                 <*> obj .:* "arguments"
-                <*> obj .:* "body"
+                <*> obj .:? "body"
     FAIL(FuncDecl)
 
 instance FromJSON Type where

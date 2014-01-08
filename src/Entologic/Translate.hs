@@ -231,7 +231,7 @@ instance AstNode Function where
         mods <- mapM translate modifiers
         typ' <- maybeTranslate typ
         args <- mapM translate arguments
-        body' <- mapM translate body
+        body' <- TV.sequence $ mapM translate <$> body
         liftIO $ putStrLn $ "body = " ++ show body'
                 ++ ", args = " ++ show args
         liftIO $ putStrLn $ "boolbody = " ++ show (present body')
@@ -297,6 +297,7 @@ instance AstNode Expression where
     name (BinOp {}) = "BinaryExpr"
     name (IntLit {}) = "IntLit"
     name (StringLit {}) = "StringLit"
+    name (ArrayLit {}) = "ArrayLit"
     name (PreOp {}) = "PrefixExpr"
     name (PostOp {}) = "PostfixExpr"
     name (Assign {}) = "Assignment"
