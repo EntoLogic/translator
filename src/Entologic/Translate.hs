@@ -243,11 +243,12 @@ instance AstNode Function where
 
 instance AstNode ParamDecl where
     name = const "ParamDecl"
-    translate' (node@(ParamDecl name typ def), area) = do
+    translate' (node@(ParamDecl name typ modifiers def extra), area) = do
+        mods <- mapM translate modifiers
         typ' <- maybeTranslate typ
         def' <- maybeTranslate def
         let vars = M.fromList [ ("name", AV name), ("type", AV typ')
-                              , ("default", AV def') ]
+                              , ("modifiers", AV mods), ("default", AV def') ]
         defTrans node area vars
 
 instance AstNode Statement where
@@ -372,7 +373,7 @@ instance AstNode Expression where
         gParams <- rse $ mapM translate genericParams
         args <- rse $ mapM translate arguments
         subexpr <- inSubExpr
-        let vars = M.fromList [("object", AV obj), ("methodName", AV method)
+        let vars = M.fromList [("object", AV obj), ("name", AV method)
                     , ("genericParameters", AV gParams), ("arguments", AV args)
                     , ("subexpression", AV subexpr)]
         defTrans node area vars
@@ -382,7 +383,7 @@ instance AstNode Expression where
         gParams <- rse $ mapM translate genericParams
         args <- rse $ mapM translate arguments
         subexpr <- inSubExpr
-        let vars = M.fromList [("functionName", AV function)
+        let vars = M.fromList [("name", AV function)
                     , ("genericParameters", AV gParams), ("arguments", AV args)
                     , ("subexpression", AV subexpr)]
         defTrans node area vars

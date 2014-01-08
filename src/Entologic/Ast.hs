@@ -1,12 +1,14 @@
 
-{-# LANGUAGE ExistentialQuantification,
-             FlexibleContexts,
-             GeneralizedNewtypeDeriving,
-             TemplateHaskell,
-             MultiParamTypeClasses,
-             TypeSynonymInstances,
-             FlexibleInstances,
-             OverloadedStrings #-}
+{-# LANGUAGE ExistentialQuantification
+           , FlexibleContexts
+           , GeneralizedNewtypeDeriving
+           , TemplateHaskell
+           , MultiParamTypeClasses
+           , TypeSynonymInstances
+           , FlexibleInstances
+           , OverloadedStrings
+           , CPP
+           #-}
 
 module Entologic.Ast
     ( UAst(..)
@@ -27,11 +29,13 @@ module Entologic.Ast
     , modifiers
     , Type(..)
     , Type'
-    , KWType(..)
+    , PrimType(..)
     , TypeDeclaration(..)
     , TypeDeclaration'
     , Class(..)
     , Class'
+    , InClassDecl(..)
+    , InClassDecl'
     , Member(..)
     , Member'
     , Field(..)
@@ -118,6 +122,8 @@ data UK a = Node a
 
 type AN a = (UK a, Area)
 
+#define AN_(a) type a' = AN a
+
 toAn :: a -> AN a
 toAn a = (Node a, Area Nothing Nothing)
 
@@ -168,16 +174,16 @@ modifiers =
     , ("synchronized", Synchronized), ("strictfp", StrictFP)
     , ("native", Native)]
 
-data KWType = Int
-            | Long
-            | Short
-            | Byte
-            | Char
-            | Float
-            | Double
-            | LDouble
-            | Bool
-              deriving (Show, Ord, Eq)
+data PrimType = IntT
+              | LongT
+              | ShortT
+              | ByteT
+              | CharT
+              | FloatT
+              | DoubleT
+              | LDoubleT
+              | BooleanT
+                deriving (Show, Ord, Eq)
 
 type Type' = AN Type
             -- ClassType: a list of (dot-separated) parts, some of which can be
@@ -185,7 +191,7 @@ type Type' = AN Type
 data Type = ClassType [(Text', [GenericParam])]
           | StringT Text
           | ArrayType Type'
-          | KeywordType KWType
+          | PrimType PrimType
 --          | forall a. (ASTNode a, Show a) => LSType a
             deriving (Show, Ord, Eq)
 
@@ -212,13 +218,19 @@ data AnnotationDecl = AnnotationDecl
 
 type Class' = AN Class
 data Class = Class { cMods :: Modifiers
-                   , cName :: String'
+                   , cName :: Text'
                    , cGericParams :: [GenericParamDecl]
                    , cSuperCls :: Maybe Type'
                    , cInterfaces :: [Type]
                    , cMembers :: [Member]
                    }
              deriving (Show, Ord, Eq)
+
+type InClassDecl' = AN InClassDecl
+data InClassDecl = MemberDecl Member
+                 | InitBlock Block
+                 | StaticInitBlock Block
+                   deriving (Show, Ord, Eq)
 
 type Member' = AN Member
 data Member = MFunc Function'
@@ -234,19 +246,28 @@ data Function = Function { fMods :: Modifiers
                          , fRTyp :: Maybe Type'
                          , fName :: Text'
                          , fParams :: [ParamDecl']
-                         , fBody :: [Statement']
+                         , fBody :: Block
                          }
                 deriving (Show, Ord, Eq)
 
 type ParamDecl' = AN ParamDecl
 data ParamDecl = ParamDecl { pName :: Text'
                            , pType :: Maybe Type'
-                           , pDefault :: Maybe Expression'}
+                           , pModifiers :: Modifiers
+                           , pDefault :: Maybe Expression'
+                           , pExtra :: Maybe ParamDeclExtra
+                           }
                  deriving (Show, Ord, Eq)
+
+data ParamDeclExtra = VarArgs
+                    | MapArgs
+                      deriving (Show, Ord, Eq)
 
 type Body' = AN Body
 data Body = Body [Statement']
             deriving (Show, Ord, Eq)
+
+type Block = [Statement']
 
 type Statement' = AN Statement
 data Statement = VarDecl { vdMods :: Modifiers
@@ -262,7 +283,7 @@ data Statement = VarDecl { vdMods :: Modifiers
                        , ifThen :: Statement'
                        , ifElse :: Statement'
                        }
-               | BlockStm [Statement]
+               | BlockStm Block
                | LabeledStm { label :: Text'
                             , lStm :: Statement'
                             }
