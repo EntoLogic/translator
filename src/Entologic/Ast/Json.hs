@@ -203,7 +203,7 @@ arrayLit obj = ArrayLit <$> obj .: "contents"
 
 functionCall obj = FunctionCall <$> obj .: "name"
                                 <*> obj .:* "genericParameters"
-                                <*> obj .:* "arguments"
+                                <*> obj .:* "args"
 
 methodCall obj = MethodCall <$> obj .: "object"
                             <*> obj .: "name"

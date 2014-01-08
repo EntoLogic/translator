@@ -4,7 +4,6 @@
            , GeneralizedNewtypeDeriving
            , TemplateHaskell
            , MultiParamTypeClasses
-           , InstanceSigs
            , TypeSynonymInstances
            , FlexibleInstances
            , OverloadedStrings
