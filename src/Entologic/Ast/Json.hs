@@ -87,7 +87,7 @@ instance ToJSON UAst where
     toJSON (UAst meta prog) = object [ "Meta" .= meta, "Program" .= prog ]
 
 instance FromJSON AstMeta where
-    parseJSON (Object map) = return AstMeta {-<$> map .: "Language"
+    parseJSON _ = return AstMeta {-<$> map .: "Language"
                                      <*> map .: "SpokenLanguage" -}
     FAIL(AstMeta)
 
