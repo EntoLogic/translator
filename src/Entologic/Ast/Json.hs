@@ -410,7 +410,8 @@ instance FromJSON Modifier where
     FAIL(Modifier)
 
 instance ToJSON Modifier where
-    toJSON mod = object [ "modifier" .= fromJust (M.lookup mod mods) ]
+    toJSON mod =
+        object [ "modifier" .= fromJust (M.lookup mod mods), jsonName mod ]
       where mods = M.fromList . map swap $ modifiers
 
 instance FromJSON GenericParam where
