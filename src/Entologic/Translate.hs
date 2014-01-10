@@ -183,7 +183,8 @@ listify' xs = let (last', init) = initLast xs
                                 ([(OCString " and ")] ++ [last])
 
 instance AstNode Program where
-    name = const "Program"
+    NAME(Program)
+    NAME(CompilationUnit)
     {-
     translate' (node, area) = do
         contents <- OCNodes . concat <$>

@@ -89,7 +89,7 @@ instance ToJSON UAst where
 instance FromJSON AstMeta where
     parseJSON _ = return AstMeta {-<$> map .: "Language"
                                      <*> map .: "SpokenLanguage" -}
-    FAIL(AstMeta)
+--    FAIL(AstMeta)
 
 instance ToJSON AstMeta where
     toJSON _ = Null
