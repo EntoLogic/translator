@@ -83,10 +83,16 @@ instance FromJSON UAst where
                                   <*> map .: "Program"
     FAIL(UAst)
 
+instance ToJSON UAst where
+    toJSON (UAst meta prog) = object [ "Meta" .= meta, "Program" .= prog ]
+
 instance FromJSON AstMeta where
     parseJSON (Object map) = return AstMeta {-<$> map .: "Language"
                                      <*> map .: "SpokenLanguage" -}
     FAIL(AstMeta)
+
+instance ToJSON AstMeta where
+    toJSON _ = Null
 
 instance FromJSON Program where
     parseJSON (Array v) = Program <$> mapM parseJSON (V.toList v)
