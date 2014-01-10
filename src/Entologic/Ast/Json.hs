@@ -101,9 +101,9 @@ instance FromJSON Program where
         case s node of
           "Program" -> parseJSON =<< obj .: "contents"
           "CompilationUnit" ->
-            CompilationUnit <$> obj .: "package"
-                            <*> obj .: "imports"
-                            <*> obj .: "declarations"
+            CompilationUnit <$> obj .:? "package"
+                            <*> obj .:* "imports"
+                            <*> obj .:* "declarations"
     FAIL(Program)
 
 instance ToJSON Program where
