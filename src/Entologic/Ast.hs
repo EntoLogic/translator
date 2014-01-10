@@ -148,10 +148,10 @@ data Program = Program { pEntries :: [ProgramEntry'] }
                deriving (Show)
 
 type Import' = AN Import
-data Import = Import [Text]
-            | ImportAll [Text]
-            | ImportStatic [Text]
-            | ImportStaticAll [Text]
+data Import = Import { imports :: [Text] }
+            | ImportAll { imports :: [Text] }
+            | ImportStatic { imports :: [Text] }
+            | ImportStaticAll { imports :: [Text] }
               deriving (Show, Ord, Eq)
 
 type Modifiers = [Modifier']

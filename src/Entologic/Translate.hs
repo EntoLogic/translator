@@ -112,6 +112,16 @@ instance Variable Text' where
             else return . (:[]) . OCNode $ OutputNode "Identifier" [OCString t']
                                                         False a ""
 
+instance Variable [Text'] where
+    present = foldl (||) False . map present
+    comparison = foldl (+) 0 . map comparison
+    inPhrase = fmap concat . mapM inPhrase
+
+instance Variable [Text] where
+    present = foldl (||) False . map present
+    comparison = foldl (+) 0 . map comparison
+    inPhrase = fmap concat . mapM inPhrase
+
 instance Variable OutputClause where 
     inPhrase = return . (:[])
 
@@ -150,6 +160,11 @@ nodeErr :: Text -> OutputNode
 nodeErr err = OutputNode "Unknown" [OCString err] False (Area Nothing Nothing)
                          "error"
 
+maybeTranslate :: AstNode a => Maybe (AN a) -> TL (Maybe OutputNode)
+maybeTranslate = TV.sequence . fmap translate
+
+#define NAME(node) name (node {}) = "node"
+
 instance Variable a => Variable (UK a) where
     inPhrase (Unknown err) = return [OCNode $ nodeErr err]
     inPhrase (Node v) = inPhrase v
@@ -158,22 +173,6 @@ instance Variable a => Variable (UK a) where
     comparison (Unknown err) = 0
     comparison (Node n) = comparison n
 
-{-
-instance AstNode a => Variable a where
-    present = const True
-    comparison = const 1
-    inPhrase = translate
--}
-
-{-
-listify :: [Text] -> TL Text
-listify xs = let (last', init) = initLast xs
-             in case last' of
-                Nothing -> return ""
-                Just last ->
-                  return $ (T.intercalate ", " init) `T.append`
-                    (" and " `T.append` last)
--}
 
 listify' :: [OutputClause] -> TL [OutputClause]
 listify' xs = let (last', init) = initLast xs
@@ -182,15 +181,6 @@ listify' xs = let (last', init) = initLast xs
                 Just last ->
                   return $ (intersperse (OCString ", ") init) ++
                                 ([(OCString " and ")] ++ [last])
-
-{-
-instance AstNode a => AstNode (Maybe a) where
-    name Nothing = "Nothing"
-    name (Just x) = name x
-
-    translate' (Nothing, _) = return []
-    translate' (Just x, area) = translate' (x, area)
--}
 
 instance AstNode Program where
     name = const "Program"
@@ -201,12 +191,30 @@ instance AstNode Program where
         let vars = M.fromList [("contents", AV contents)]
         defTrans node area vars
     -}
+    translate' (node@(CompilationUnit pkg imps typeds), area) = do
+        imports <- mapM translate imps
+        typedecls <- mapM translate typeds
+        let vars = M.fromList [ ("package", AV pkg), ("imports", AV imports)
+                              , ("typeDeclarations", AV typedecls)]
+        defTrans node area vars
+
     translate' (node, area) = do
         liftIO $ putStrLn $ "translate' Program: " ++ show node
         contents <- mapM translate $ pEntries node
         return $ OutputNode "Program" (map OCNode contents) False
                             (Area Nothing Nothing) ""
+
         -- TODO
+
+instance AstNode Import where
+    NAME(Import)
+    NAME(ImportStatic)
+    NAME(ImportAll)
+    NAME(ImportStaticAll)
+
+    translate' (node, area) = do
+        let vars = M.fromList [("imports", AV $ imports node)]
+        defTrans node area vars
 
 instance AstNode ProgramEntry where
     name (PEStm s) = name s
@@ -215,10 +223,9 @@ instance AstNode ProgramEntry where
     translate' (PEFunc f, area) = translate' (f, area)
     -- TODO: Other ProgramEntry types
 
-maybeTranslate :: AstNode a => Maybe (AN a) -> TL (Maybe OutputNode)
-maybeTranslate = TV.sequence . fmap translate
 
-#define NAME(node) name (node {}) = "node"
+instance AstNode TypeDeclaration where
+    translate' (TDCls c, a) = translate' (c, a)
 
 instance AstNode Class where
     name = const "ClassDecl"
