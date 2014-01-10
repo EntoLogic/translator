@@ -34,6 +34,8 @@ module Entologic.Ast
     , TypeDeclaration'
     , Class(..)
     , Class'
+    , ClassTypePart(..)
+    , ClassTypePart'
     , InClassDecl(..)
     , InClassDecl'
     , Member(..)
@@ -190,12 +192,16 @@ data PrimType = IntT
 type Type' = AN Type
             -- ClassType: a list of (dot-separated) parts, some of which can be
             -- types with generic parameters
-data Type = ClassType [(Text', [GenericParam])]
+data Type = ClassType [ClassTypePart']
           | StringT Text
           | ArrayType Type'
           | PrimType PrimType
 --          | forall a. (ASTNode a, Show a) => LSType a
             deriving (Show, Ord, Eq)
+
+type ClassTypePart' = AN ClassTypePart
+data ClassTypePart = ClassTypePart Text' [GenericParam']
+                     deriving (Eq, Ord, Show)
 
 
 type LSAny' = AN LSAny
@@ -221,9 +227,9 @@ data AnnotationDecl = AnnotationDecl
 type Class' = AN Class
 data Class = Class { cMods :: Modifiers
                    , cName :: Text'
-                   , cGericParams :: [GenericParamDecl]
+                   , cGericParams :: [GenericParamDecl']
                    , cSuperCls :: Maybe Type'
-                   , cInterfaces :: [Type]
+                   , cInterfaces :: [Type']
                    , cMembers :: [InClassDecl']
                    }
              deriving (Show, Ord, Eq)
@@ -235,8 +241,8 @@ data InClassDecl = MemberDecl Member
                    deriving (Show, Ord, Eq)
 
 type Member' = AN Member
-data Member = MFunc Function'
-            | MField Field'
+data Member = MFunc Function
+            | MField Field
               deriving (Show, Ord, Eq)
 
 type Field' = AN Field
@@ -399,6 +405,7 @@ data Expression = Assign VarRef' Expression'
 type GenericParam' = AN GenericParam
 data GenericParam = GenericParam
                     deriving (Show, Ord, Eq)
+
 type GenericParamDecl' = AN GenericParamDecl
 data GenericParamDecl = GenericParamDecl
                         deriving (Show, Ord, Eq)

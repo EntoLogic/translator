@@ -165,11 +165,6 @@ instance AstNode a => Variable a where
     inPhrase = translate
 -}
 
-initLast :: [a] -> (Maybe a, [a])
-initLast [x] = (Just x, [])
-initLast (x:xs) = (x:) <$> initLast xs
-initLast [] = (Nothing, [])
-
 {-
 listify :: [Text] -> TL Text
 listify xs = let (last', init) = initLast xs
@@ -225,6 +220,42 @@ maybeTranslate = TV.sequence . fmap translate
 
 #define NAME(node) name (node {}) = "node"
 
+instance AstNode Class where
+    name = const "ClassDecl"
+    
+    translate' (node@(Class mods name gParams super ints mems), area) = do
+        mods' <- mapM translate mods
+        gParams' <- mapM translate gParams
+        super' <- maybeTranslate super
+        ints' <- mapM translate ints
+        mems' <- mapM translate mems
+        let vars =
+              M.fromList [ ("modifiers", AV mods'), ("name", AV name)
+                , ("genericParameters", AV gParams'), ("superClass", AV super')
+                , ("interfaces", AV ints'), ("members", AV mems') ]
+        defTrans node area vars
+
+instance AstNode InClassDecl where
+    NAME(InitBlock)
+    NAME(StaticInitBlock)
+    name (MemberDecl m) = name m
+
+    translate' (node@(MemberDecl m), area) = translate' (m, area)
+    translate' (node@(InitBlock contents), area) = do
+        contents <- mapM translate contents
+        let vars = M.fromList [("contents", AV contents)]
+        defTrans node area vars
+    translate' (node@(StaticInitBlock contents), area) = do
+        contents <- mapM translate contents
+        let vars = M.fromList [("contents", AV contents)]
+        defTrans node area vars
+
+instance AstNode Member where
+    name (MFunc f) = name f
+
+    translate' (MFunc f, a) = translate' (f, a)
+    translate' (MField f, a) = translate' (f, a)
+
 instance AstNode Function where
     name = const "FuncDecl"
     translate' (node@(Function modifiers typ name arguments body), area) = do
@@ -240,6 +271,11 @@ instance AstNode Function where
                               , ("name", AV name), ("arguments", AV args)
                               , ("body", AV body') ]
         defTrans node area vars
+
+instance AstNode Field where
+    name = const "Field"
+
+    translate' (node, area) = defTrans node area M.empty
 
 instance AstNode ParamDecl where
     name = const "ParamDecl"
@@ -415,7 +451,28 @@ instance AstNode VarRef where
         defTrans node area vars
     
 instance AstNode Type where
-    translate' = undefined
+    name (StringT {}) = "StringType"
+    name (ArrayType {}) = "ArrayType"
+    NAME(ClassType)
+    translate' (node@(ClassType parts), area) = do
+        parts' <- mapM translate parts
+        let vars = M.fromList [("parts", AV parts')]
+        defTrans node area vars
+
+    translate' (node@(ArrayType elemType), area) = do
+        elemType <- translate elemType
+        let vars = M.fromList [("elementType", AV elemType)]
+        defTrans node area vars
+
+    translate' _ = return $ errNode "Type"
+
+instance AstNode ClassTypePart where
+    name = const "ClassTypePart"
+    translate' (node@(ClassTypePart name gParams), area) = do
+        gParams' <- mapM translate gParams
+        let vars = M.fromList [ ("name", AV name)
+                              , ("genericParameters", AV gParams')]
+        defTrans node area vars
 
 
 runSubExpr :: AstNode n => n -> TL a -> TL a
@@ -489,3 +546,8 @@ instance AstNode GenericParam where
     name = const "GenericParameter"
 
     translate' = const . return $ errNode "GenericParam"
+
+instance AstNode GenericParamDecl where
+    name = const "GenericParameterDecl"
+
+    translate' = const . return $ errNode "GenericParamDecl"

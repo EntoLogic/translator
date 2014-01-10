@@ -116,6 +116,11 @@ data Location = Location { _line :: Int, _col :: Int }
 s :: String -> String
 s = id
 
+initLast :: [a] -> (Maybe a, [a])
+initLast [x] = (Just x, [])
+initLast (x:xs) = (x:) <$> initLast xs
+initLast [] = (Nothing, [])
+
 tupleM :: Monad m => (m a, m b) -> m (a, b)
 tupleM (ma, mb) = do
     a <- ma

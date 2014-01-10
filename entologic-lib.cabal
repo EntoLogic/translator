@@ -45,3 +45,4 @@ library
                      , attoparsec -any
                      , semigroups -any
                      , unix -any
+                     , unordered-containers -any
