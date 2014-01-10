@@ -347,7 +347,7 @@ instance FromJSON VarRef where
 
 instance ToJSON VarRef where
     toJSON node@(VarAccess var) = object [ "var" .= var, jsonName node ]
-    toJSON node@(FieldAccess obj var) = object [ "obj" .= obj, "var" .= var
+    toJSON node@(FieldAccess obj var) = object [ "obj" .= obj, "field" .= var
                                                   , jsonName node ]
 
 instance FromJSON a => FromJSON (AN a) where
