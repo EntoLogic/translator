@@ -223,7 +223,7 @@ instance FromJSON (Text', [GenericParam]) where
 instance ToJSON Type where
     toJSON (StringT s) = toJSON s
     toJSON node@(ClassType parts) =
-        object [ "dottedParts" .= parts, jsonName node ]
+        object [ "parts" .= parts, jsonName node ]
     toJSON node@(ArrayType elem) =
         object [ "elementType" .= elem, jsonName node ]
 
